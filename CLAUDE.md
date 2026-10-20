@@ -2,26 +2,26 @@
 
 ESP32-S3 firmware (M5Stack AtomS3 Lite) that exposes Rademacher Fernotron
 shutters to Alexa as Matter Window Coverings, transmitting on 433.92 MHz
-through an M5Stack Unit RF433T. The build plan is in docs/plan.md.
+through an M5Stack Unit RF433T. The build plan is in docs/plan.md; where this
+repo deliberately differs from it, docs/decisions.md says so and why.
+
+The house: 8 shutters in 4 rooms, one 2411 group per room (1-4), members 1-2.
 
 ## Commands
-- Device build: `pio run -e atoms3`
-- Host tests:   `pio test -e native`
-- Flash:        `pio run -e atoms3 -t upload`
-- Erase flash:  `pio run -e atoms3 -t erase`
-- Serial log:   `pio device monitor -e atoms3`
+Every shell first needs `source tools/env.sh` (ESP-IDF + esp-matter).
+- Toolchain install: `tools/setup_toolchain.sh` (pinned versions, ~/esp)
+- Host tests:   `tools/host_test.sh`
+- Device build: `idf.py build`
+- Flash + log:  `idf.py -p /dev/cu.usbmodem* flash monitor`
+- Erase flash:  `idf.py -p /dev/cu.usbmodem* erase-flash`
 A change is done when host tests pass and the device build succeeds.
 
 ## Hardware facts
 - RF433T data is GPIO2 (Grove yellow). HIGH means carrier on.
-- Drive GPIO2 LOW first thing in setup(); RMT end-of-transmission level is LOW.
-- RMT tick is 400 kHz (2.5 us): 400 us = 160 ticks, max duration 81.9 ms.
-- Matter needs the Huge APP partition scheme and a full flash erase on upload.
+- Drive GPIO2 LOW first thing in app_main(); RMT end-of-transmission level is LOW.
+- RMT resolution is 400 kHz (2.5 us): 400 us = 160 ticks, max duration 81.9 ms.
+- Front button is GPIO41, active LOW.
 - Download mode: hold the reset button about 2 s until the green LED lights.
-- The prebuilt Arduino Matter libraries allow at most 4 dynamic endpoints
-  (CONFIG_ESP_MATTER_MAX_DYNAMIC_ENDPOINT_COUNT=4).
-- Arduino Matter callbacks deliver whole percent; StopMotion is only visible
-  as a target equal to the current position.
 
 ## Fernotron rules
 - Address = 2411 sender ID + group + member (1-7). 0 means all.
@@ -36,17 +36,19 @@ A change is done when host tests pass and the device build succeeds.
 - Never transmit in a loop on hardware without a delay and a repeat limit.
 
 ## Architecture rules
-- lib/ is pure C++17: no Arduino.h, no ESP-IDF headers.
+- components/fernotron and components/shutter are pure C++17: no ESP-IDF
+  headers. They build on the host in test/.
+- main/ holds the adapters: Matter, RMT, NVS, CLI, diag.
 - Matter callbacks never block: enqueue an event and return.
 - Log every received Matter command to diag: cluster, command, value, fabric.
 - Endpoint IDs never change for an existing shutter.
-- Use the Matter and RMT library APIs; never reimplement their internals.
+- Use the esp-matter, RMT and NVS APIs; never reimplement their internals.
 
 ## Testing
-- New lib/ code comes with Unity tests under test/.
+- New component code comes with Unity tests under test/.
 - Encoder output must match test/vectors bit for bit.
 
 ## Style
 - Comments say what the code does and why. No historical notes such as
   "replaces X" or "we used to have Y".
-- Logic belongs in lib/; keep src/ files small.
+- Logic belongs in components/; keep main/ files small.

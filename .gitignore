@@ -1,5 +1,10 @@
-.pio/
 .vscode/
 *.pyc
 __pycache__/
 .DS_Store
+build/
+build-host/
+managed_components/
+sdkconfig
+sdkconfig.old
+dependencies.lock
