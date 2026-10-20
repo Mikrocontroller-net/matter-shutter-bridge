@@ -1,0 +1,26 @@
+menu "Fernomatter"
+
+config FERNO_BRIDGE_LAYOUT
+    bool "Expose shutters as bridged devices under an Aggregator"
+    default y
+    help
+        On: one Aggregator endpoint plus one bridged Window Covering per
+        shutter, each with its own name. Off: one standalone Window Covering
+        endpoint per shutter. Switching after pairing requires re-pairing.
+
+config FERNO_CENTRAL_ID
+    hex "2411 central unit ID"
+    default 0x800000
+    help
+        Sender ID printed on the 2411's sticker, with its 0x80 type prefix.
+        Only used to show the frames the spike would transmit.
+
+config FERNO_SIM_UP_MS
+    int "Simulated full travel time up (ms)"
+    default 20000
+
+config FERNO_SIM_DOWN_MS
+    int "Simulated full travel time down (ms)"
+    default 18000
+
+endmenu
