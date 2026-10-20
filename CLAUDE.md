@@ -18,6 +18,10 @@ A change is done when host tests pass and the device build succeeds.
 - RMT tick is 400 kHz (2.5 us): 400 us = 160 ticks, max duration 81.9 ms.
 - Matter needs the Huge APP partition scheme and a full flash erase on upload.
 - Download mode: hold the reset button about 2 s until the green LED lights.
+- The prebuilt Arduino Matter libraries allow at most 4 dynamic endpoints
+  (CONFIG_ESP_MATTER_MAX_DYNAMIC_ENDPOINT_COUNT=4).
+- Arduino Matter callbacks deliver whole percent; StopMotion is only visible
+  as a target equal to the current position.
 
 ## Fernotron rules
 - Address = 2411 sender ID + group + member (1-7). 0 means all.
