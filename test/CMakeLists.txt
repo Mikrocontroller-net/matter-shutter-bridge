@@ -19,7 +19,8 @@ set(COMPONENTS ${CMAKE_CURRENT_SOURCE_DIR}/../components)
 
 add_library(fernotron STATIC
   ${COMPONENTS}/fernotron/src/fernotron/message.cpp
-  ${COMPONENTS}/fernotron/src/fernotron/encoder.cpp)
+  ${COMPONENTS}/fernotron/src/fernotron/encoder.cpp
+  ${COMPONENTS}/fernotron/src/fernotron/airtime.cpp)
 target_include_directories(fernotron PUBLIC ${COMPONENTS}/fernotron/src)
 
 add_library(shutter STATIC

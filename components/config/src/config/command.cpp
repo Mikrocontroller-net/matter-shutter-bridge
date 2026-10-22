@@ -10,6 +10,7 @@ static const char *const SHUTTER_USAGE =
     "invert ends|mid on|off";
 static const char *const HOUSE_USAGE = "house | house id <hex> | house repeats <n>";
 static const char *const CAL_USAGE = "cal <n> up|down | cal done | cal cancel";
+static const char *const SEND_USAGE = "send <group 0-7> <member 0-7> up|down|stop";
 
 static bool parseNumber(const char *s, int base, uint32_t &out) {
   if (!s || !*s) return false;
@@ -115,11 +116,25 @@ static Command parseCal(int argc, const char *const *argv) {
   return c;
 }
 
+static Command parseSend(int argc, const char *const *argv) {
+  Command c;
+  if (argc != 4 || !parseNumber(argv[1], 10, c.a) || !parseNumber(argv[2], 10, c.b) || c.a > 7 || c.b > 7) {
+    return invalid(SEND_USAGE);
+  }
+  if (strcmp(argv[3], "up") == 0) c.move = Move::Up;
+  else if (strcmp(argv[3], "down") == 0) c.move = Move::Down;
+  else if (strcmp(argv[3], "stop") == 0) c.move = Move::Stop;
+  else return invalid(SEND_USAGE);
+  c.op = Op::Send;
+  return c;
+}
+
 Command parse(int argc, const char *const *argv) {
   if (argc < 1) return invalid(SHUTTER_USAGE);
   if (strcmp(argv[0], "shutter") == 0) return parseShutter(argc, argv);
   if (strcmp(argv[0], "house") == 0) return parseHouse(argc, argv);
   if (strcmp(argv[0], "cal") == 0) return parseCal(argc, argv);
+  if (strcmp(argv[0], "send") == 0) return parseSend(argc, argv);
   return invalid(SHUTTER_USAGE);
 }
 

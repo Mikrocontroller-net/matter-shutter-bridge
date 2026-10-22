@@ -224,6 +224,19 @@ static void test_apply_changes_house_and_reports_errors() {
   TEST_ASSERT_EQUAL_HEX32(0x80495d, h.centralId);
 }
 
+static void test_parse_send() {
+  Command c = run({"send", "1", "2", "up"});
+  TEST_ASSERT_EQUAL(Op::Send, c.op);
+  TEST_ASSERT_EQUAL_UINT32(1, c.a);
+  TEST_ASSERT_EQUAL_UINT32(2, c.b);
+  TEST_ASSERT_EQUAL(Move::Up, c.move);
+  TEST_ASSERT_EQUAL(Move::Stop, run({"send", "0", "0", "stop"}).move);
+  TEST_ASSERT_EQUAL(Move::Down, run({"send", "4", "0", "down"}).move);
+  TEST_ASSERT_EQUAL(Op::Invalid, run({"send", "8", "1", "up"}).op);
+  TEST_ASSERT_EQUAL(Op::Invalid, run({"send", "1", "1", "set"}).op);
+  TEST_ASSERT_EQUAL(Op::Invalid, run({"send", "1", "up"}).op);
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_defaults_are_four_rooms_of_two);
@@ -247,5 +260,6 @@ int main() {
   RUN_TEST(test_parse_house_id_accepts_plain_and_0x_hex);
   RUN_TEST(test_parse_calibration);
   RUN_TEST(test_apply_changes_house_and_reports_errors);
+  RUN_TEST(test_parse_send);
   return UNITY_END();
 }

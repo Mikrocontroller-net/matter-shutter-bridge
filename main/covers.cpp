@@ -16,6 +16,7 @@
 #include <shutter/controller.h>
 
 #include "diag.h"
+#include "rf_tx.h"
 #include "settings.h"
 
 using namespace esp_matter;
@@ -78,7 +79,6 @@ struct Cover {
 
 static Cover covers[config::MAX_SHUTTERS];
 static size_t count = 0;
-static uint8_t counter = 1;  // Fernotron per-command counter, shared by all shutters on one sender ID
 
 // Runs on the Matter task before the cluster server handles the command.
 static esp_err_t logCommand(const chip::app::ConcreteCommandPath &path, chip::TLV::TLVReader &tlv, void *opaque) {
@@ -168,23 +168,15 @@ esp_err_t create(node_t *node) {
   return ESP_OK;
 }
 
-// Logs the frame rf_tx will send once the radio exists.
 static void transmit(size_t i, shutter::Action action) {
   const config::House house = settings::get();
   const config::Shutter &s = house.shutters[i];
   const fernotron::Command cmd = action == shutter::Action::Up     ? fernotron::Command::Up
                                  : action == shutter::Action::Down ? fernotron::Command::Down
                                                                    : fernotron::Command::Stop;
-  fernotron::Message msg{};
-  const fernotron::Error err = fernotron::buildMessage({house.centralId, s.group, s.member}, cmd, counter, msg);
-  if (err != fernotron::Error::None) {
-    ESP_LOGE(TAG, "cannot build frame for %s: error %d", s.name, (int)err);
-    return;
+  if (!rf_tx::send({house.centralId, s.group, s.member}, cmd, house.repeats)) {
+    ESP_LOGE(TAG, "radio refused a command for %s", s.name);
   }
-  counter = fernotron::nextCounter(counter);
-  ESP_LOGI(TAG, "[rf] %s %s x%u: %02x %02x %02x %02x %02x %02x", s.name,
-           cmd == fernotron::Command::Up ? "UP" : cmd == fernotron::Command::Down ? "DOWN" : "STOP", house.repeats,
-           msg[0], msg[1], msg[2], msg[3], msg[4], msg[5]);
 }
 
 static uint8_t operationalStatus(const shutter::Controller &ctl) {

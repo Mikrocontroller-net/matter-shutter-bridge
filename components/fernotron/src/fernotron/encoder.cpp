@@ -21,6 +21,8 @@ uint32_t Frame::durationUs() const {
   return total;
 }
 
+uint32_t Frame::onAirUs() const { return count == 0 ? 0 : durationUs() - marks[count - 1].lowUs; }
+
 Frame encode(const Message &msg, const Timing &t) {
   Frame f;
   auto put = [&f](uint32_t high, uint32_t low) { f.marks[f.count++] = {high, low}; };

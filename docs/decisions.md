@@ -2,6 +2,24 @@
 
 Where this repo deliberately differs from `docs/plan.md`, and why. Newest first.
 
+## 2026-10-23 — Radio: one TX task, airtime counted per frame
+
+**Decision.** `main/rf_tx` owns the RMT channel (GPIO2, 400 kHz, idle and
+end-of-transmission LOW) and the Fernotron counter. A command is queued, gets
+the next counter value and goes out `house repeats` times with that counter;
+each frame's 42.8 ms trailing gap separates the repeats. Every frame, lead-in
+included, is sent as tronferno does.
+
+Before each frame, `fernotron::Airtime` books its airtime against 360 s per
+sliding hour (10 %); when the budget is used up the rest of that command is
+dropped and logged. Airtime counts the whole frame up to its last pulse, not
+just carrier-on time, which is the conservative reading of the duty-cycle
+rule. One command with 4 repeats costs about 1 s, so roughly 370 commands an
+hour fit.
+
+**Unverified.** Nothing has been transmitted yet; frames have not been
+compared with a 2411 capture (gate G1).
+
 ## 2026-10-23 — Configuration lives in NVS, edited over the serial console
 
 **Decision.** The 2411 ID, repeat count and per-shutter name, group, member,

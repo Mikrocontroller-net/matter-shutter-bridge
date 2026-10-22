@@ -18,6 +18,8 @@
 //   house repeats <n>
 //   cal <n> up|down                      start the stopwatch
 //   cal done | cal cancel
+//   send <group> <member> up|down|stop   one command straight to the radio;
+//                                        0 = all groups / all members
 namespace config {
 
 enum class Op : uint8_t {
@@ -33,7 +35,10 @@ enum class Op : uint8_t {
   CalStart,
   CalDone,
   CalCancel,
+  Send,
 };
+
+enum class Move : uint8_t { Stop, Up, Down };
 
 struct Command {
   Op op = Op::Invalid;
@@ -43,10 +48,11 @@ struct Command {
   uint32_t b = 0;    // member, down_ms
   bool mid = false;  // invert: mid instead of ends
   bool on = false;   // invert: on/off; cal: true = up
+  Move move = Move::Stop;  // send
   const char *usage = nullptr;  // set when op is Invalid
 };
 
-// argv[0] is the command word itself ("shutter", "house" or "cal").
+// argv[0] is the command word itself ("shutter", "house", "cal" or "send").
 Command parse(int argc, const char *const *argv);
 
 // Applies Name, Address, Times, Invert, CentralId and Repeats. Other ops are

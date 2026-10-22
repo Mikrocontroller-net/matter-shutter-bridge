@@ -10,6 +10,7 @@
 
 #include "covers.h"
 #include "diag.h"
+#include "rf_tx.h"
 #include "settings.h"
 
 namespace cli {
@@ -74,6 +75,15 @@ static void calibrate(const config::Command &c) {
          (unsigned long)measured);
 }
 
+static void sendDirect(const config::Command &c) {
+  const config::House h = settings::get();
+  const fernotron::Command cmd = c.move == config::Move::Up     ? fernotron::Command::Up
+                                 : c.move == config::Move::Down ? fernotron::Command::Down
+                                                                : fernotron::Command::Stop;
+  const bool queued = rf_tx::send({h.centralId, (uint8_t)c.a, (uint8_t)c.b}, cmd, h.repeats);
+  printf("%s\n", queued ? "queued" : "radio refused the command");
+}
+
 // esp-matter passes only the words after the command; the parser wants the
 // command word first.
 static esp_err_t run(const char *word, int argc, char **argv) {
@@ -90,6 +100,7 @@ static esp_err_t run(const char *word, int argc, char **argv) {
     case config::Op::CalStart:
     case config::Op::CalDone:
     case config::Op::CalCancel: calibrate(c); return ESP_OK;
+    case config::Op::Send: sendDirect(c); return ESP_OK;
     default: break;
   }
 
@@ -110,6 +121,7 @@ static esp_err_t run(const char *word, int argc, char **argv) {
 static esp_err_t cmdShutter(int argc, char **argv) { return run("shutter", argc, argv); }
 static esp_err_t cmdHouse(int argc, char **argv) { return run("house", argc, argv); }
 static esp_err_t cmdCal(int argc, char **argv) { return run("cal", argc, argv); }
+static esp_err_t cmdSend(int argc, char **argv) { return run("send", argc, argv); }
 
 static esp_err_t cmdDiag(int argc, char **argv) {
   if (argc > 0 && strcmp(argv[0], "clear") == 0) {
@@ -130,6 +142,7 @@ void registerCommands() {
       {"shutter", "List shutters, or set name/address/times/invert of one", cmdShutter},
       {"house", "Show or set the 2411 ID and repeat count", cmdHouse},
       {"cal", "Measure travel time: cal <n> up|down, then cal done", cmdCal},
+      {"send", "Transmit one command: send <group> <member> up|down|stop (0 = all)", cmdSend},
       {"diag", "Dump received Matter commands; 'diag clear' empties the log", cmdDiag},
       {"status", "Show each shutter's position and motion", cmdStatus},
   };

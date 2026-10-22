@@ -8,6 +8,7 @@
 
 #include "cli.h"
 #include "covers.h"
+#include "rf_tx.h"
 #include "settings.h"
 
 static const char *TAG = "app";
@@ -59,6 +60,7 @@ static esp_err_t onAttributeUpdate(esp_matter::attribute::callback_type_t, uint1
 
 extern "C" void app_main() {
   rfPinLow();
+  if (rf_tx::init() != ESP_OK) ESP_LOGE(TAG, "radio unavailable; commands will not be transmitted");
   nvs_flash_init();
   settings::load();
 

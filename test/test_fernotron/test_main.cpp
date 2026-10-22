@@ -1,5 +1,6 @@
 #include <unity.h>
 
+#include <fernotron/airtime.h>
 #include <fernotron/encoder.h>
 #include <fernotron/message.h>
 
@@ -173,6 +174,61 @@ static void test_preamble_length_is_configurable() {
   TEST_ASSERT_EQUAL_UINT32(6 + 12 * 11 + 1, encode(TRONFERNO_HEADER, t).count);
 }
 
+static void test_on_air_time_excludes_trailing_gap() {
+  const Frame f = encode(TRONFERNO_HEADER);
+  TEST_ASSERT_EQUAL_UINT32(f.durationUs() - 42800, f.onAirUs());
+  TEST_ASSERT_EQUAL_UINT32(50000 + 5600 + 12 * 15600 + 400, f.onAirUs());
+}
+
+// --- Duty-cycle budget -------------------------------------------------------
+
+static void test_airtime_refuses_past_budget() {
+  Airtime a(1000);
+  TEST_ASSERT_TRUE(a.tryConsume(0, 600));
+  TEST_ASSERT_TRUE(a.tryConsume(10, 400));
+  TEST_ASSERT_FALSE(a.tryConsume(20, 1));
+  TEST_ASSERT_EQUAL_UINT32(1000, a.usedMs(20));
+}
+
+static void test_airtime_refused_request_books_nothing() {
+  Airtime a(1000);
+  TEST_ASSERT_TRUE(a.tryConsume(0, 900));
+  TEST_ASSERT_FALSE(a.tryConsume(0, 200));
+  TEST_ASSERT_TRUE(a.tryConsume(0, 100));
+}
+
+static void test_airtime_expires_after_an_hour() {
+  Airtime a(1000);
+  a.tryConsume(0, 1000);
+  TEST_ASSERT_FALSE(a.tryConsume(59 * 60000, 1));
+  TEST_ASSERT_TRUE(a.tryConsume(60 * 60000, 1000));
+}
+
+static void test_airtime_expires_minute_by_minute() {
+  Airtime a(1000);
+  a.tryConsume(0, 300);           // minute 0
+  a.tryConsume(30 * 60000, 700);  // minute 30
+  TEST_ASSERT_EQUAL_UINT32(1000, a.usedMs(59 * 60000));
+  TEST_ASSERT_EQUAL_UINT32(700, a.usedMs(60 * 60000));  // minute 0 dropped
+  TEST_ASSERT_EQUAL_UINT32(0, a.usedMs(90 * 60000));
+}
+
+static void test_airtime_counter_wrap_clears_history() {
+  Airtime a(1000);
+  a.tryConsume(0xFFFFFFF0u, 1000);
+  TEST_ASSERT_TRUE(a.tryConsume(5, 1000));
+}
+
+static void test_default_budget_allows_hundreds_of_commands_per_hour() {
+  // 4 repeats of a frame with lead-in, counted generously.
+  Airtime a;
+  const uint32_t perCommandMs = 4 * (encode(TRONFERNO_HEADER).onAirUs() / 1000 + 1);
+  uint32_t sent = 0;
+  while (a.tryConsume(sent, perCommandMs)) sent++;
+  TEST_ASSERT_TRUE(sent >= 300);
+  TEST_ASSERT_TRUE(sent <= 500);
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_checksum_is_byte_sum);
@@ -194,5 +250,12 @@ int main() {
   RUN_TEST(test_frame_duration);
   RUN_TEST(test_all_durations_fit_the_rmt_at_400khz);
   RUN_TEST(test_preamble_length_is_configurable);
+  RUN_TEST(test_on_air_time_excludes_trailing_gap);
+  RUN_TEST(test_airtime_refuses_past_budget);
+  RUN_TEST(test_airtime_refused_request_books_nothing);
+  RUN_TEST(test_airtime_expires_after_an_hour);
+  RUN_TEST(test_airtime_expires_minute_by_minute);
+  RUN_TEST(test_airtime_counter_wrap_clears_history);
+  RUN_TEST(test_default_budget_allows_hundreds_of_commands_per_hour);
   return UNITY_END();
 }

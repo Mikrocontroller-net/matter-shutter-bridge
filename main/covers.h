@@ -5,9 +5,9 @@
 
 #include <esp_matter.h>
 
-// One Matter Window Covering per configured shutter, driven by
-// shutter::Controller with simulated travel and no radio: every frame that
-// would go on air is logged. Positions use the Matter convention,
+// One Matter Window Covering per configured shutter. shutter::Controller
+// turns Matter targets into UP/DOWN/STOP for rf_tx and estimates position from
+// the configured travel times. Positions use the Matter convention,
 // 0 = open and 10000 = closed.
 namespace covers {
 

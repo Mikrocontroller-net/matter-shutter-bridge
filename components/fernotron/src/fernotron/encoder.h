@@ -55,6 +55,9 @@ struct Frame {
   size_t count = 0;
 
   uint32_t durationUs() const;
+  // Duration up to the end of the last pulse, i.e. without the trailing gap.
+  // Counted as airtime: the off periods inside a frame are part of it.
+  uint32_t onAirUs() const;
 };
 
 // 10-bit word for byte `index / 2` of a message: the byte plus 2 parity bits

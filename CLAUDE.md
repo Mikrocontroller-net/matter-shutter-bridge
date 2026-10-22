@@ -41,6 +41,9 @@ cover endpoint, so never reorder or delete slots.
 - EU 433 MHz band: 10 mW e.r.p., under 10% duty cycle. Never add power.
 - Repeats are bounded (default 4); prefer group addressing to loops.
 - Never transmit in a loop on hardware without a delay and a repeat limit.
+- All transmissions go through main/rf_tx, which enforces the 10% budget
+  per sliding hour (fernotron::Airtime). Never bypass or loosen it.
+- Hand test without Alexa: `matter send <group> <member> up|down|stop`.
 
 ## Architecture rules
 - components/fernotron, components/shutter and components/config are pure
