@@ -221,6 +221,57 @@ static void test_out_of_range_target_is_clamped() {
   TEST_ASSERT_EQUAL_UINT16(CLOSED, c.target());
 }
 
+
+// --- Live travel-time changes ------------------------------------------------
+
+static void test_estimator_new_times_continue_from_current_position() {
+  Estimator e(TIMES, OPEN);
+  e.start(Direction::Down, 0);
+  const uint32_t half = TIMES.downMs / 2;  // at 5000
+  e.setTimes({TIMES.upMs, TIMES.downMs * 2}, half);
+  TEST_ASSERT_EQUAL_UINT16(5000, e.position(half));
+  TEST_ASSERT_EQUAL_UINT16(7500, e.position(half + TIMES.downMs / 2));
+}
+
+static void test_controller_new_times_move_pending_mid_stop() {
+  Controller c = make();
+  c.goTo(3000, 0);
+  const uint32_t at1000 = TIMES.downMs / 10;
+  c.setTimes({TIMES.upMs, TIMES.downMs * 2}, at1000);
+  // 2000 left at the doubled down time.
+  const uint32_t due = at1000 + TIMES.downMs * 2 / 5;
+  TEST_ASSERT_EQUAL(Action::None, c.tick(due - 1));
+  TEST_ASSERT_EQUAL(Action::Stop, c.tick(due));
+  TEST_ASSERT_EQUAL_UINT16(3000, c.position(due));
+}
+
+static void test_controller_new_times_move_end_resend() {
+  Controller c = make();
+  c.goTo(CLOSED, 0);
+  c.setTimes({TIMES.upMs, TIMES.downMs * 2}, 0);
+  TEST_ASSERT_EQUAL(Action::None, c.tick(TIMES.downMs + MARGIN));
+  TEST_ASSERT_EQUAL(Action::Down, c.tick(TIMES.downMs * 2 + MARGIN));
+}
+
+static void test_controller_new_times_when_idle_apply_to_next_move() {
+  Controller c = make();
+  c.setTimes({TIMES.upMs, TIMES.downMs * 2}, 0);
+  c.goTo(5000, 100);
+  TEST_ASSERT_EQUAL(Action::None, c.tick(100 + TIMES.downMs / 2));
+  TEST_ASSERT_EQUAL(Action::Stop, c.tick(100 + TIMES.downMs));
+}
+
+static void test_run_ignores_polarity_flags() {
+  Flags f;
+  f.invertEnds = true;
+  Controller c = make(f, OPEN);
+  TEST_ASSERT_EQUAL(Action::Down, c.run(Direction::Down, 0));
+  TEST_ASSERT_EQUAL_UINT16(CLOSED, c.target());
+  TEST_ASSERT_EQUAL(Action::Down, c.tick(TIMES.downMs + MARGIN));
+  TEST_ASSERT_EQUAL(Action::Up, c.run(Direction::Up, TIMES.downMs + MARGIN));
+  TEST_ASSERT_EQUAL_UINT16(OPEN, c.target());
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_estimator_starts_stopped_at_given_position);
@@ -245,5 +296,10 @@ int main() {
   RUN_TEST(test_invert_ends_swaps_open_and_close_only);
   RUN_TEST(test_invert_mid_mirrors_mid_targets_only);
   RUN_TEST(test_out_of_range_target_is_clamped);
+  RUN_TEST(test_estimator_new_times_continue_from_current_position);
+  RUN_TEST(test_controller_new_times_move_pending_mid_stop);
+  RUN_TEST(test_controller_new_times_move_end_resend);
+  RUN_TEST(test_controller_new_times_when_idle_apply_to_next_move);
+  RUN_TEST(test_run_ignores_polarity_flags);
   return UNITY_END();
 }

@@ -22,6 +22,14 @@ void Estimator::stopAt(uint16_t position) {
   moving_ = false;
 }
 
+void Estimator::setTimes(TravelTimes times, uint32_t now) {
+  if (moving_) {
+    startPos_ = position(now);
+    startMs_ = now;
+  }
+  times_ = times;
+}
+
 uint16_t Estimator::position(uint32_t now) const {
   if (!moving_) return startPos_;
   const uint32_t travel = dir_ == Direction::Up ? times_.upMs : times_.downMs;

@@ -16,6 +16,13 @@ Every shell first needs `source tools/env.sh` (ESP-IDF + esp-matter).
 - Erase flash:  `idf.py -p /dev/cu.usbmodem* erase-flash`
 A change is done when host tests pass and the device build succeeds.
 
+## Device configuration
+Names, 2411 addresses, travel times and polarity flags live in NVS
+(components/config, main/settings) and change at runtime over the serial
+console, no rebuild: `matter shutter`, `matter house`, `matter cal <n> up|down`
+then `matter cal done`. Shutter slots are fixed: slot i is always the i-th
+cover endpoint, so never reorder or delete slots.
+
 ## Hardware facts
 - RF433T data is GPIO2 (Grove yellow). HIGH means carrier on.
 - Drive GPIO2 LOW first thing in app_main(); RMT end-of-transmission level is LOW.
@@ -36,8 +43,8 @@ A change is done when host tests pass and the device build succeeds.
 - Never transmit in a loop on hardware without a delay and a repeat limit.
 
 ## Architecture rules
-- components/fernotron and components/shutter are pure C++17: no ESP-IDF
-  headers. They build on the host in test/.
+- components/fernotron, components/shutter and components/config are pure
+  C++17: no ESP-IDF headers. They build on the host in test/.
 - main/ holds the adapters: Matter, RMT, NVS, CLI, diag.
 - Matter callbacks never block: enqueue an event and return.
 - Log every received Matter command to diag: cluster, command, value, fabric.

@@ -6,8 +6,9 @@
 #include <freertos/task.h>
 #include <nvs_flash.h>
 
+#include "cli.h"
 #include "covers.h"
-#include "diag.h"
+#include "settings.h"
 
 static const char *TAG = "app";
 
@@ -56,23 +57,10 @@ static esp_err_t onAttributeUpdate(esp_matter::attribute::callback_type_t, uint1
   return ESP_OK;
 }
 
-static esp_err_t cmdDiag(int argc, char **argv) {
-  if (argc > 0 && strcmp(argv[0], "clear") == 0) {
-    diag::clear();
-  } else {
-    diag::dump();
-  }
-  return ESP_OK;
-}
-
-static esp_err_t cmdStatus(int, char **) {
-  covers::printStatus();
-  return ESP_OK;
-}
-
 extern "C" void app_main() {
   rfPinLow();
   nvs_flash_init();
+  settings::load();
 
   esp_matter::node::config_t nodeCfg;
   esp_matter::node_t *node = esp_matter::node::create(&nodeCfg, onAttributeUpdate, nullptr);
@@ -88,12 +76,8 @@ extern "C" void app_main() {
   covers::start();
   xTaskCreate(buttonTask, "button", 2048, nullptr, 3, nullptr);
 
-  static const esp_matter::console::command_t commands[] = {
-      {"diag", "Dump received commands; 'diag clear' empties the log", cmdDiag},
-      {"status", "Show each shutter's endpoint, position and motion", cmdStatus},
-  };
   esp_matter::console::diagnostics_register_commands();
   esp_matter::console::factoryreset_register_commands();
-  esp_matter::console::add_commands(commands, sizeof(commands) / sizeof(commands[0]));
+  cli::registerCommands();
   esp_matter::console::init();
 }

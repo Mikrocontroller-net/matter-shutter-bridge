@@ -2,6 +2,24 @@
 
 Where this repo deliberately differs from `docs/plan.md`, and why. Newest first.
 
+## 2026-10-23 — Configuration lives in NVS, edited over the serial console
+
+**Decision.** The 2411 ID, repeat count and per-shutter name, group, member,
+travel times and polarity flags are one versioned blob in NVS
+(`components/config`, `main/settings.cpp`). Console commands change them at
+runtime and take effect immediately; `matter cal <n> up|down` + `matter cal
+done` measures travel times with a stopwatch.
+
+**Why.** Calibration happens at the window, not at the compiler, and the
+polarity flags must be switchable the night Alexa changes behaviour.
+
+**Limits for now.** Slots are fixed (8 from the defaults); adding or removing
+shutters needs dynamic endpoints and comes later. A bridged shutter's unique ID
+is tied to its slot, not its address, so renaming or re-addressing keeps it the
+same device in Alexa. Whether Alexa picks up a NodeLabel changed after pairing
+is unverified. Possible later additions: a vendor-specific Matter cluster for
+times and flags (writable with chip-tool), and a JSON file pushed over serial.
+
 ## 2026-10-20 — ESP-IDF + esp-matter instead of Arduino-ESP32
 
 **Decision.** Device firmware is a plain ESP-IDF project on ESP-IDF v6.0.2 with

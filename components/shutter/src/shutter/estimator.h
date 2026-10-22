@@ -28,6 +28,9 @@ class Estimator {
   void stop(uint32_t now);
   // Stops and sets the position outright, e.g. on reaching a known target.
   void stopAt(uint16_t position);
+  // Switches to new travel times; a running move continues from the estimate
+  // at `now` at the new rate.
+  void setTimes(TravelTimes times, uint32_t now);
 
   uint16_t position(uint32_t now) const;
   bool moving() const { return moving_; }

@@ -16,6 +16,7 @@
 #include <shutter/controller.h>
 
 #include "diag.h"
+#include "settings.h"
 
 using namespace esp_matter;
 using namespace chip::app::Clusters;
@@ -24,32 +25,20 @@ namespace covers {
 
 static const char *TAG = "covers";
 
-// The house: one 2411 group per room, two shutters each. Names are what the
-// bridged layout shows in Alexa; rename them here until the config store
-// exists. Order fixes the endpoint IDs, so only ever append.
-struct ShutterSpec {
-  const char *name;
-  uint8_t group;
-  uint8_t member;
-};
-static constexpr ShutterSpec SHUTTERS[] = {
-    {"Raum 1 links", 1, 1}, {"Raum 1 rechts", 1, 2}, {"Raum 2 links", 2, 1}, {"Raum 2 rechts", 2, 2},
-    {"Raum 3 links", 3, 1}, {"Raum 3 rechts", 3, 2}, {"Raum 4 links", 4, 1}, {"Raum 4 rechts", 4, 2},
-};
-static constexpr size_t COUNT = sizeof(SHUTTERS) / sizeof(SHUTTERS[0]);
-
 static constexpr uint32_t TICK_MS = 100;
 static constexpr uint32_t REPORT_MS = 500;  // position report interval while moving
 
 struct Event {
-  enum class Kind : uint8_t { Move, Stop } kind;
+  enum class Kind : uint8_t { Move, Stop, Run, Reconfigure } kind;
   uint8_t index;
-  uint16_t target;
+  uint16_t target;  // Move: Matter target; Run: OPEN or CLOSED
 };
 
 static QueueHandle_t events;
 
 static uint32_t nowMs() { return (uint32_t)(esp_timer_get_time() / 1000); }
+
+static void post(Event e) { xQueueSend(events, &e, 0); }
 
 // Runs on the Matter task after the cluster server has stored the new target:
 // read it, queue it and return.
@@ -72,8 +61,7 @@ class Delegate : public WindowCovering::WindowCoveringDelegate {
   // IN_PROGRESS keeps the server from setting target = current itself; the
   // worker does that once the estimate is frozen.
   CHIP_ERROR HandleStopMotion() override {
-    Event e{Event::Kind::Stop, index_, 0};
-    xQueueSend(events, &e, 0);
+    post({Event::Kind::Stop, index_, 0});
     return CHIP_ERROR_IN_PROGRESS;
   }
 
@@ -88,7 +76,8 @@ struct Cover {
   uint32_t lastReportMs = 0;
 };
 
-static Cover covers[COUNT];
+static Cover covers[config::MAX_SHUTTERS];
+static size_t count = 0;
 static uint8_t counter = 1;  // Fernotron per-command counter, shared by all shutters on one sender ID
 
 // Runs on the Matter task before the cluster server handles the command.
@@ -127,9 +116,17 @@ static void fillCoverConfig(endpoint::window_covering::config_t &cfg, Delegate *
   wc.delegate = delegate;
 }
 
+static shutter::Config controllerConfig(const config::Shutter &s) {
+  shutter::Config cfg;
+  cfg.times = {s.upMs, s.downMs};
+  cfg.flags.invertEnds = s.invertEnds;
+  cfg.flags.invertMid = s.invertMid;
+  return cfg;
+}
+
 esp_err_t create(node_t *node) {
-  shutter::Config controllerCfg;
-  controllerCfg.times = {CONFIG_FERNO_SIM_UP_MS, CONFIG_FERNO_SIM_DOWN_MS};
+  const config::House house = settings::get();
+  count = house.count;
 
 #if CONFIG_FERNO_BRIDGE_LAYOUT
   endpoint::aggregator::config_t aggregatorCfg;
@@ -137,26 +134,27 @@ esp_err_t create(node_t *node) {
   if (!aggregator) return ESP_FAIL;
 #endif
 
-  for (size_t i = 0; i < COUNT; i++) {
+  for (size_t i = 0; i < count; i++) {
+    const config::Shutter &s = house.shutters[i];
     Cover &c = covers[i];
     c.delegate.setIndex((uint8_t)i);
-    c.controller = shutter::Controller(controllerCfg, shutter::OPEN);
+    c.controller = shutter::Controller(controllerConfig(s), shutter::OPEN);
     endpoint::window_covering::config_t cfg(chip::to_underlying(WindowCovering::EndProductType::kRollerShutter));
     fillCoverConfig(cfg, &c.delegate);
 
 #if CONFIG_FERNO_BRIDGE_LAYOUT
     endpoint::bridged_node::config_t bridgedCfg;
+    // Fixed per slot, so a renamed shutter is still the same device to Alexa.
     snprintf(bridgedCfg.bridged_device_basic_information.unique_id,
-             sizeof(bridgedCfg.bridged_device_basic_information.unique_id), "fernomatter-g%um%u", SHUTTERS[i].group,
-             SHUTTERS[i].member);
+             sizeof(bridgedCfg.bridged_device_basic_information.unique_id), "fernomatter-slot%u", (unsigned)(i + 1));
     endpoint_t *ep = endpoint::bridged_node::create(node, &bridgedCfg, ENDPOINT_FLAG_BRIDGE, nullptr);
     if (!ep || endpoint::window_covering::add(ep, &cfg) != ESP_OK ||
         endpoint::set_parent_endpoint(ep, aggregator) != ESP_OK) {
       return ESP_FAIL;
     }
     cluster_t *info = cluster::get(ep, BridgedDeviceBasicInformation::Id);
-    cluster::bridged_device_basic_information::attribute::create_node_label(
-        info, const_cast<char *>(SHUTTERS[i].name), (uint16_t)strlen(SHUTTERS[i].name));
+    cluster::bridged_device_basic_information::attribute::create_node_label(info, const_cast<char *>(s.name),
+                                                                            (uint16_t)strlen(s.name));
 #else
     endpoint_t *ep = endpoint::window_covering::create(node, &cfg, ENDPOINT_FLAG_NONE, nullptr);
     if (!ep) return ESP_FAIL;
@@ -165,35 +163,35 @@ esp_err_t create(node_t *node) {
     c.endpoint = endpoint::get_id(ep);
     c.delegate.SetEndpoint(c.endpoint);
     hookCommandLogging(cluster::get(ep, WindowCovering::Id));
-    ESP_LOGI(TAG, "endpoint %u: %s (group %u, member %u)", c.endpoint, SHUTTERS[i].name, SHUTTERS[i].group,
-             SHUTTERS[i].member);
+    ESP_LOGI(TAG, "endpoint %u: %s (group %u, member %u)", c.endpoint, s.name, s.group, s.member);
   }
   return ESP_OK;
 }
 
 // Logs the frame rf_tx will send once the radio exists.
 static void transmit(size_t i, shutter::Action action) {
-  fernotron::Command cmd = action == shutter::Action::Up     ? fernotron::Command::Up
-                           : action == shutter::Action::Down ? fernotron::Command::Down
-                                                             : fernotron::Command::Stop;
+  const config::House house = settings::get();
+  const config::Shutter &s = house.shutters[i];
+  const fernotron::Command cmd = action == shutter::Action::Up     ? fernotron::Command::Up
+                                 : action == shutter::Action::Down ? fernotron::Command::Down
+                                                                   : fernotron::Command::Stop;
   fernotron::Message msg{};
-  const fernotron::Error err =
-      fernotron::buildMessage({CONFIG_FERNO_CENTRAL_ID, SHUTTERS[i].group, SHUTTERS[i].member}, cmd, counter, msg);
+  const fernotron::Error err = fernotron::buildMessage({house.centralId, s.group, s.member}, cmd, counter, msg);
   if (err != fernotron::Error::None) {
-    ESP_LOGE(TAG, "cannot build frame for %s: error %d", SHUTTERS[i].name, (int)err);
+    ESP_LOGE(TAG, "cannot build frame for %s: error %d", s.name, (int)err);
     return;
   }
   counter = fernotron::nextCounter(counter);
-  ESP_LOGI(TAG, "[rf] %s %s: %02x %02x %02x %02x %02x %02x", SHUTTERS[i].name,
-           cmd == fernotron::Command::Up ? "UP" : cmd == fernotron::Command::Down ? "DOWN" : "STOP", msg[0], msg[1],
-           msg[2], msg[3], msg[4], msg[5]);
+  ESP_LOGI(TAG, "[rf] %s %s x%u: %02x %02x %02x %02x %02x %02x", s.name,
+           cmd == fernotron::Command::Up ? "UP" : cmd == fernotron::Command::Down ? "DOWN" : "STOP", house.repeats,
+           msg[0], msg[1], msg[2], msg[3], msg[4], msg[5]);
 }
 
 static uint8_t operationalStatus(const shutter::Controller &ctl) {
   // Lift field (bits 2-3) and global field (bits 0-1) carry the same state.
-  const uint8_t state = !ctl.moving()                                     ? 0
-                        : ctl.direction() == shutter::Direction::Up ? 1  // MovingUpOrOpen
-                                                                    : 2; // MovingDownOrClose
+  const uint8_t state = !ctl.moving()                                ? 0
+                        : ctl.direction() == shutter::Direction::Up ? 1   // MovingUpOrOpen
+                                                                    : 2;  // MovingDownOrClose
   return (uint8_t)(state | (state << 2));
 }
 
@@ -209,12 +207,35 @@ static void report(Cover &c, uint32_t now, bool syncTarget) {
   c.lastReportMs = now;
 }
 
+static void applySettings(size_t i, uint32_t now) {
+  const config::House house = settings::get();
+  const config::Shutter &s = house.shutters[i];
+  Cover &c = covers[i];
+  c.controller.setTimes({s.upMs, s.downMs}, now);
+  c.controller.flags() = controllerConfig(s).flags;
+#if CONFIG_FERNO_BRIDGE_LAYOUT
+  char label[config::MAX_NAME_BYTES + 1];
+  strncpy(label, s.name, sizeof(label));
+  esp_matter_attr_val_t val = esp_matter_char_str(label, (uint16_t)strlen(label));
+  lock::ScopedChipStackLock lock(portMAX_DELAY);
+  attribute::update(c.endpoint, BridgedDeviceBasicInformation::Id,
+                    BridgedDeviceBasicInformation::Attributes::NodeLabel::Id, &val);
+#endif
+}
+
 static void handle(const Event &e, uint32_t now) {
   Cover &c = covers[e.index];
-  const shutter::Action action =
-      e.kind == Event::Kind::Stop ? c.controller.stop(now) : c.controller.goTo(e.target, now);
+  shutter::Action action = shutter::Action::None;
+  switch (e.kind) {
+    case Event::Kind::Move: action = c.controller.goTo(e.target, now); break;
+    case Event::Kind::Stop: action = c.controller.stop(now); break;
+    case Event::Kind::Run:
+      action = c.controller.run(e.target == shutter::OPEN ? shutter::Direction::Up : shutter::Direction::Down, now);
+      break;
+    case Event::Kind::Reconfigure: applySettings(e.index, now); return;
+  }
   if (action != shutter::Action::None) transmit(e.index, action);
-  report(c, now, e.kind == Event::Kind::Stop || !c.controller.moving());
+  report(c, now, e.kind != Event::Kind::Move || !c.controller.moving());
 }
 
 static void worker(void *) {
@@ -223,7 +244,7 @@ static void worker(void *) {
     if (xQueueReceive(events, &e, pdMS_TO_TICKS(TICK_MS)) == pdTRUE) handle(e, nowMs());
 
     const uint32_t now = nowMs();
-    for (size_t i = 0; i < COUNT; i++) {
+    for (size_t i = 0; i < count; i++) {
       Cover &c = covers[i];
       const bool wasMoving = c.controller.moving();
       const shutter::Action action = c.controller.tick(now);
@@ -239,16 +260,30 @@ static void worker(void *) {
 
 void start() {
   events = xQueueCreate(32, sizeof(Event));
-  xTaskCreate(worker, "covers", 4096, nullptr, 5, nullptr);
+  xTaskCreate(worker, "covers", 6144, nullptr, 5, nullptr);
 }
 
+void run(size_t index, bool up) {
+  if (index < count) post({Event::Kind::Run, (uint8_t)index, up ? shutter::OPEN : shutter::CLOSED});
+}
+
+void stop(size_t index) {
+  if (index < count) post({Event::Kind::Stop, (uint8_t)index, 0});
+}
+
+void reconfigure(size_t index) {
+  if (index < count) post({Event::Kind::Reconfigure, (uint8_t)index, 0});
+}
+
+uint16_t endpointOf(size_t index) { return index < count ? covers[index].endpoint : 0; }
+
 void printStatus() {
+  const config::House house = settings::get();
   const uint32_t now = nowMs();
-  for (size_t i = 0; i < COUNT; i++) {
+  for (size_t i = 0; i < count; i++) {
     const Cover &c = covers[i];
-    ESP_LOGI(TAG, "ep %u %-14s g%u m%u position %5u target %5u %s", c.endpoint, SHUTTERS[i].name, SHUTTERS[i].group,
-             SHUTTERS[i].member, c.controller.position(now), c.controller.target(),
-             c.controller.moving() ? "moving" : "stopped");
+    ESP_LOGI(TAG, "ep %u %-32s position %5u target %5u %s", c.endpoint, house.shutters[i].name,
+             c.controller.position(now), c.controller.target(), c.controller.moving() ? "moving" : "stopped");
   }
 }
 

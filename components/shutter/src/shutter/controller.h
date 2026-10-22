@@ -39,10 +39,16 @@ class Controller {
 
   // GoToLiftPercentage, UpOrOpen (OPEN) and DownOrClose (CLOSED).
   Action goTo(uint16_t target, uint32_t now);
+  // Runs to an end stop in the physical direction, ignoring the polarity
+  // flags. For the console and calibration, not for Matter commands.
+  Action run(Direction dir, uint32_t now);
   // StopMotion. Always transmits STOP, since a remote may have moved it.
   Action stop(uint32_t now);
   // Call often; returns a scheduled STOP or end re-send when one is due.
   Action tick(uint32_t now);
+  // New calibration. A move in progress keeps going and its scheduled STOP
+  // or end re-send is rescheduled for the new times.
+  void setTimes(TravelTimes times, uint32_t now);
 
   uint16_t position(uint32_t now) const { return est_.position(now); }
   uint16_t target() const { return target_; }
@@ -55,6 +61,7 @@ class Controller {
   enum class Pending : uint8_t { None, MidStop, EndReached };
 
   uint16_t applyFlags(uint16_t target) const;
+  Action move(uint16_t target, uint32_t now);
 
   Config cfg_;
   Estimator est_;

@@ -16,7 +16,12 @@ uint16_t Controller::applyFlags(uint16_t target) const {
 
 Action Controller::goTo(uint16_t target, uint32_t now) {
   if (target > CLOSED) target = CLOSED;
-  target = applyFlags(target);
+  return move(applyFlags(target), now);
+}
+
+Action Controller::run(Direction dir, uint32_t now) { return move(dir == Direction::Up ? OPEN : CLOSED, now); }
+
+Action Controller::move(uint16_t target, uint32_t now) {
   const uint16_t current = est_.position(now);
 
   if (isEnd(target)) {
@@ -47,6 +52,14 @@ Action Controller::stop(uint32_t now) {
   target_ = est_.position(now);
   pending_ = Pending::None;
   return Action::Stop;
+}
+
+void Controller::setTimes(TravelTimes times, uint32_t now) {
+  est_.setTimes(times, now);
+  cfg_.times = times;
+  if (pending_ == Pending::None) return;
+  const uint16_t current = est_.position(now);
+  dueMs_ = now + est_.durationMs(current, target_) + (pending_ == Pending::EndReached ? cfg_.endMarginMs : 0);
 }
 
 Action Controller::tick(uint32_t now) {

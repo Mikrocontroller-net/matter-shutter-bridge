@@ -27,8 +27,13 @@ add_library(shutter STATIC
   ${COMPONENTS}/shutter/src/shutter/controller.cpp)
 target_include_directories(shutter PUBLIC ${COMPONENTS}/shutter/src)
 
+add_library(config STATIC
+  ${COMPONENTS}/config/src/config/house.cpp
+  ${COMPONENTS}/config/src/config/command.cpp)
+target_include_directories(config PUBLIC ${COMPONENTS}/config/src)
+
 enable_testing()
-foreach(name fernotron shutter)
+foreach(name fernotron shutter config)
   add_executable(test_${name} test_${name}/test_main.cpp)
   target_link_libraries(test_${name} PRIVATE ${name} unity)
   add_test(NAME ${name} COMMAND test_${name})
