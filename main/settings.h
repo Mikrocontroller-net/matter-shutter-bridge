@@ -21,6 +21,12 @@ struct Radio {
 };
 Radio radio();
 
+// Last known shutter positions (Matter convention, 0 = open). Kept apart from
+// the configuration because they change with every move; written when a move
+// ends. OPEN for a shutter with nothing stored.
+uint16_t savedPosition(size_t index);
+void savePosition(size_t index, uint16_t position);
+
 config::Error apply(const config::Command &c);
 config::Error setTimes(size_t index, uint32_t upMs, uint32_t downMs);
 

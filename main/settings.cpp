@@ -1,5 +1,7 @@
 #include "settings.h"
 
+#include <string.h>
+
 #include <esp_log.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
@@ -10,10 +12,12 @@ namespace settings {
 static const char *TAG = "settings";
 static const char *NVS_NAMESPACE = "fernomatter";
 static const char *NVS_KEY = "house";
+static const char *NVS_KEY_POSITIONS = "positions";
 
 static config::House house;
 static SemaphoreHandle_t mutex;
 static uint8_t blob[config::MAX_BLOB];  // NVS image; used under the mutex or before tasks start
+static uint16_t positions[config::MAX_SHUTTERS];
 
 // Caller holds the mutex.
 static bool save() {
@@ -40,6 +44,41 @@ void load() {
     house = config::defaults();
     save();
   }
+
+  size_t posLen = sizeof(positions);
+  if (nvs_open(NVS_NAMESPACE, NVS_READONLY, &nvs) == ESP_OK) {
+    if (nvs_get_blob(nvs, NVS_KEY_POSITIONS, positions, &posLen) != ESP_OK || posLen != sizeof(positions)) {
+      memset(positions, 0, sizeof(positions));
+    }
+    nvs_close(nvs);
+  }
+  for (uint16_t &p : positions) {
+    if (p > 10000) p = 0;
+  }
+}
+
+uint16_t savedPosition(size_t index) {
+  if (index >= config::MAX_SHUTTERS) return 0;
+  xSemaphoreTake(mutex, portMAX_DELAY);
+  const uint16_t p = positions[index];
+  xSemaphoreGive(mutex);
+  return p;
+}
+
+void savePosition(size_t index, uint16_t position) {
+  if (index >= config::MAX_SHUTTERS) return;
+  xSemaphoreTake(mutex, portMAX_DELAY);
+  if (positions[index] != position) {
+    positions[index] = position;
+    nvs_handle_t nvs;
+    if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs) == ESP_OK) {
+      if (nvs_set_blob(nvs, NVS_KEY_POSITIONS, positions, sizeof(positions)) != ESP_OK || nvs_commit(nvs) != ESP_OK) {
+        ESP_LOGE(TAG, "could not write positions to NVS");
+      }
+      nvs_close(nvs);
+    }
+  }
+  xSemaphoreGive(mutex);
 }
 
 size_t count() {

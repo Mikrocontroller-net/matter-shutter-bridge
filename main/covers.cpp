@@ -104,15 +104,16 @@ static void hookCommandLogging(cluster_t *cluster) {
 
 // Lift only, position aware. Type and end product type are cached by Alexa at
 // pairing, so they must be right before the first commissioning.
-static void fillCoverConfig(endpoint::window_covering::config_t &cfg, Delegate *delegate) {
+static void fillCoverConfig(endpoint::window_covering::config_t &cfg, Delegate *delegate, uint16_t position) {
   auto &wc = cfg.window_covering;
   wc.type = chip::to_underlying(WindowCovering::Type::kRollerShadeExterior);
   wc.config_status = chip::to_underlying(WindowCovering::ConfigStatus::kOperational) |
                      chip::to_underlying(WindowCovering::ConfigStatus::kLiftPositionAware);
   wc.feature_flags = cluster::window_covering::feature::lift::get_id() |
                      cluster::window_covering::feature::position_aware_lift::get_id();
-  wc.features.position_aware_lift.current_position_lift_percent_100ths = nullable<uint16_t>(shutter::OPEN);
-  wc.features.position_aware_lift.target_position_lift_percent_100ths = nullable<uint16_t>(shutter::OPEN);
+  const uint16_t reported = shutter::reportedPosition(position);
+  wc.features.position_aware_lift.current_position_lift_percent_100ths = nullable<uint16_t>(reported);
+  wc.features.position_aware_lift.target_position_lift_percent_100ths = nullable<uint16_t>(reported);
   wc.delegate = delegate;
 }
 
@@ -149,9 +150,10 @@ esp_err_t create(node_t *node) {
     const config::Shutter s = settings::shutter(i);
     Cover &c = covers[i];
     c.delegate.setIndex((uint8_t)i);
-    c.controller = shutter::Controller(controllerConfig(s), shutter::OPEN);
+    const uint16_t position = settings::savedPosition(i);
+    c.controller = shutter::Controller(controllerConfig(s), position);
     endpoint::window_covering::config_t cfg(chip::to_underlying(WindowCovering::EndProductType::kRollerShutter));
-    fillCoverConfig(cfg, &c.delegate);
+    fillCoverConfig(cfg, &c.delegate, position);
 
     endpoint::bridged_node::config_t bridgedCfg;
     // Fixed per slot, so a renamed shutter is still the same device to Alexa.
@@ -169,7 +171,8 @@ esp_err_t create(node_t *node) {
     c.endpoint = endpoint::get_id(ep);
     c.delegate.SetEndpoint(c.endpoint);
     hookCommandLogging(cluster::get(ep, WindowCovering::Id));
-    ESP_LOGI(TAG, "endpoint %u: %s (group %u, member %u)", c.endpoint, s.name, s.group, s.member);
+    ESP_LOGI(TAG, "endpoint %u: %s (group %u, member %u), position %u", c.endpoint, s.name, s.group, s.member,
+             position);
   }
   return ESP_OK;
 }
@@ -193,14 +196,18 @@ static uint8_t operationalStatus(const shutter::Controller &ctl) {
   return (uint8_t)(state | (state << 2));
 }
 
+// Publishes the estimate to Matter. `syncTarget` is set when a move has ended
+// (arrived or stopped): the target follows the position and the position is
+// kept for the next boot.
 static void report(Cover &c, uint32_t now, bool syncTarget) {
   using namespace WindowCovering::Attributes;
   const uint16_t pos = c.controller.position(now);
+  if (syncTarget && !c.controller.moving()) settings::savePosition((size_t)(&c - covers), pos);
+
+  const auto reported = chip::app::DataModel::MakeNullable<chip::Percent100ths>(shutter::reportedPosition(pos));
   lock::ScopedChipStackLock lock(portMAX_DELAY);
-  CurrentPositionLiftPercent100ths::Set(c.endpoint, chip::app::DataModel::MakeNullable<chip::Percent100ths>(pos));
-  if (syncTarget) {
-    TargetPositionLiftPercent100ths::Set(c.endpoint, chip::app::DataModel::MakeNullable<chip::Percent100ths>(pos));
-  }
+  CurrentPositionLiftPercent100ths::Set(c.endpoint, reported);
+  if (syncTarget) TargetPositionLiftPercent100ths::Set(c.endpoint, reported);
   OperationalStatus::Set(c.endpoint, chip::BitMask<WindowCovering::OperationalStatus>(operationalStatus(c.controller)));
   c.lastReportMs = now;
 }

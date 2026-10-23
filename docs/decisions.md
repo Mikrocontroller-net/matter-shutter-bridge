@@ -2,6 +2,20 @@
 
 Where this repo deliberately differs from `docs/plan.md`, and why. Newest first.
 
+## 2026-10-23 — Report the ends one hundredth short, keep positions
+
+**Decision.** `shutter::reportedPosition()` maps fully open (0) to 1 and
+fully closed (10000) to 9999 for everything reported over Matter; the
+estimate itself is unchanged. Positions are saved to NVS whenever a move ends
+and restored at boot.
+
+**Why.** Alexa does not send "open" to a cover it believes is fully open
+(observed: a routine opening all shutters sent nothing after a restart had
+reset every estimate to open). Fernotron gives no feedback, so the estimate
+can always be wrong; reporting the ends just short of exact keeps open/close
+commands flowing, and the receiver ignores a redundant UP/DOWN anyway.
+Apps still show 0 % / 100 %.
+
 ## 2026-10-23 — Merge commands for rooms and the whole house
 
 **Decision.** `rf_tx` collects commands for 150 ms in `fernotron::Batcher`.
