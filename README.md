@@ -181,14 +181,16 @@ table stay.
 - Rename shutters and assign rooms in the Alexa app as with any device. Alexa
   takes the names from the stick when pairing; a name changed on the stick
   later may not show up in Alexa, so rename in the app.
-- Alexa files the shutters under the category "Jalousie". Sentences about a
+- Alexa files the shutters under the category "Jalousie" (in routines:
+  "Innenjalousien"), although the firmware declares them as exterior roller
+  shutters. Sentences about a
   category have to use a word Alexa links to it: in testing, "Alexa, mach
   alle Rollos im Schlafzimmer auf" did not reach the device, while the
   same shutters work from the app. Which spoken phrases work is still being
   tested.
 - Percentages in the Alexa app mean "percent closed", the Matter convention.
-- Other users report that Matter covers can't be used as actions in Alexa
-  routines.
+- The shutters can be used as actions in Alexa routines, where Alexa lists
+  them under "Innenjalousien" (interior blinds).
 
 ## Limitations
 
