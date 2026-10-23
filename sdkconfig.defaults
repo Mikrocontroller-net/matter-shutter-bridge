@@ -16,6 +16,8 @@ CONFIG_BT_NIMBLE_ENABLE_CONN_REATTEMPT=n
 CONFIG_ESP_MATTER_MAX_DYNAMIC_ENDPOINT_COUNT=20
 
 CONFIG_ENABLE_CHIP_SHELL=y
+# Vendor and product name shown for the bridge
+CONFIG_CHIP_PROJECT_CONFIG="main/matter_project_config.h"
 # Console commands print tables; 2 KB default is too small
 CONFIG_ESP_MATTER_CONSOLE_TASK_STACK=4096
 # Matter data model creation and settings load run on the main task
