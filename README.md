@@ -53,7 +53,9 @@ No soldering. Place the stick where your 2411 remote reaches all shutters;
 ### Smart home side
 
 - An **Amazon Echo** that acts as a Matter controller, and the Alexa app.
-  Other Matter controllers (Home Assistant, Apple Home, Google Home) should
+  **Apple Home** also works as a second controller (shared from Alexa, see
+  below); without an Apple home hub (Apple TV or HomePod) iOS only stays
+  connected while the Home app is open. Home Assistant and Google Home should
   work too but are untested.
 - **2.4 GHz Wi-Fi** on the same network as the Echo, with multicast/mDNS not
   blocked between devices (no client isolation).
@@ -114,6 +116,10 @@ monitor shows the log and accepts console commands; quit it with `Ctrl+]`.
 3. Accept the warning about an uncertified device.
 
 Alexa then finds a hub named "Rollladen-Bridge" and one device per shutter.
+
+To add a second controller such as Apple Home later, share the bridge from the
+Alexa app (device settings of the hub, "other assistants and apps"). Alexa
+shows a temporary code to enter in the other app.
 The pairing window is open for about 15 minutes after each start; replug the
 stick if it has closed.
 
