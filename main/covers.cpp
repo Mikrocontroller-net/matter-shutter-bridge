@@ -124,8 +124,20 @@ static shutter::Config controllerConfig(const config::Shutter &s) {
   return cfg;
 }
 
+// Tells the radio which motors are ours, so it knows when a room or the whole
+// house can be moved with one frame.
+static void syncRadioMembers() {
+  uint8_t members[8] = {};
+  for (size_t i = 0; i < count; i++) {
+    const config::Shutter s = settings::shutter(i);
+    members[s.group] |= (uint8_t)(1u << s.member);
+  }
+  rf_tx::setMembers(members);
+}
+
 esp_err_t create(node_t *node) {
   count = settings::count();
+  syncRadioMembers();
 
 #if CONFIG_FERNO_BRIDGE_LAYOUT
   endpoint::aggregator::config_t aggregatorCfg;
@@ -262,7 +274,9 @@ void stop(size_t index) {
 }
 
 void reconfigure(size_t index) {
-  if (index < count) post({Event::Kind::Reconfigure, (uint8_t)index, 0});
+  if (index >= count) return;
+  syncRadioMembers();
+  post({Event::Kind::Reconfigure, (uint8_t)index, 0});
 }
 
 uint16_t endpointOf(size_t index) { return index < count ? covers[index].endpoint : 0; }

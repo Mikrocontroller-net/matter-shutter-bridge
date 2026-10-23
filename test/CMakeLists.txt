@@ -20,7 +20,8 @@ set(COMPONENTS ${CMAKE_CURRENT_SOURCE_DIR}/../components)
 add_library(fernotron STATIC
   ${COMPONENTS}/fernotron/src/fernotron/message.cpp
   ${COMPONENTS}/fernotron/src/fernotron/encoder.cpp
-  ${COMPONENTS}/fernotron/src/fernotron/airtime.cpp)
+  ${COMPONENTS}/fernotron/src/fernotron/airtime.cpp
+  ${COMPONENTS}/fernotron/src/fernotron/batcher.cpp)
 target_include_directories(fernotron PUBLIC ${COMPONENTS}/fernotron/src)
 
 add_library(shutter STATIC
@@ -37,5 +38,12 @@ enable_testing()
 foreach(name fernotron shutter config)
   add_executable(test_${name} test_${name}/test_main.cpp)
   target_link_libraries(test_${name} PRIVATE ${name} unity)
+  add_test(NAME ${name} COMMAND test_${name})
+endforeach()
+
+# Extra suites for the fernotron library.
+foreach(name batcher)
+  add_executable(test_${name} test_${name}/test_main.cpp)
+  target_link_libraries(test_${name} PRIVATE fernotron unity)
   add_test(NAME ${name} COMMAND test_${name})
 endforeach()

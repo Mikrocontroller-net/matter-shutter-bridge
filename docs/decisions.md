@@ -2,6 +2,22 @@
 
 Where this repo deliberately differs from `docs/plan.md`, and why. Newest first.
 
+## 2026-10-23 — Merge commands for rooms and the whole house
+
+**Decision.** `rf_tx` collects commands for 150 ms in `fernotron::Batcher`.
+When every configured motor of a group got the same command it sends one
+frame to (group, member 0); when every configured group is complete, one
+frame to (0, 0). STOPs go first, and merges are recomputed after every frame.
+
+**Why.** Alexa sends one Matter command per shutter for a room or group. At
+~1.2 s per command with 4 repeats, "all shutters" took ~9 s from first to
+last, and a timed STOP queued behind other commands could stop a shutter
+seconds late. Merged, the whole house moves with one ~1.2 s command.
+
+**Cost.** Up to 150 ms latency per command, also for timed STOPs (<1 % of an
+18 s travel). Group frames reach every motor paired to that group on the
+2411, so the shutter table must list all of them.
+
 ## 2026-10-23 — Radio: one TX task, airtime counted per frame
 
 **Decision.** `main/rf_tx` owns the RMT channel (GPIO2, 400 kHz, idle and

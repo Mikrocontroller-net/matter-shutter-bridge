@@ -9,6 +9,7 @@
 #include <freertos/task.h>
 
 #include <fernotron/airtime.h>
+#include <fernotron/batcher.h>
 #include <fernotron/encoder.h>
 
 namespace rf_tx {
@@ -19,11 +20,16 @@ static constexpr gpio_num_t DATA_PIN = GPIO_NUM_2;
 static constexpr uint32_t RESOLUTION_HZ = 400000;  // 2.5 us per tick
 static constexpr uint8_t MAX_REPEATS = 8;
 static constexpr int FRAME_TIMEOUT_MS = 1000;
+// Alexa sends one command per shutter for a room or group; this collects them
+// so they can leave as one frame. Also the worst-case delay of a timed STOP.
+static constexpr uint32_t BATCH_WINDOW_MS = 150;
 
 struct Request {
+  enum class Kind : uint8_t { Command, Members } kind;
   fernotron::Target target;
   fernotron::Command cmd;
   uint8_t repeats;
+  uint8_t members[8];  // Members: bit m of members[g]
 };
 
 static rmt_channel_handle_t channel;
@@ -58,32 +64,77 @@ static bool transmitFrame(const fernotron::Frame &frame) {
   return rmt_tx_wait_all_done(channel, FRAME_TIMEOUT_MS) == ESP_OK;
 }
 
+static uint32_t nowMs() { return (uint32_t)(esp_timer_get_time() / 1000); }
+
+// Task-owned state.
+static fernotron::Batcher batcher(BATCH_WINDOW_MS);
+static uint32_t centralId = 0;
+static uint8_t repeats = 1;
+static uint8_t counter = 1;
+
+static void accept(const Request &r) {
+  if (r.kind == Request::Kind::Members) {
+    batcher.clearMembers();
+    for (uint8_t g = 1; g < 8; g++) {
+      for (uint8_t m = 1; m < 8; m++) {
+        if (r.members[g] & (1u << m)) batcher.addMember(g, m);
+      }
+    }
+    return;
+  }
+  centralId = r.target.id;
+  repeats = r.repeats;
+  batcher.add(r.target.group, r.target.member, r.cmd, nowMs());
+}
+
+static void drain() {
+  Request r;
+  while (xQueueReceive(requests, &r, 0) == pdTRUE) accept(r);
+}
+
+// One command: next counter value, `repeats` identical frames.
+static void transmit(const fernotron::Batcher::Frame &f) {
+  fernotron::Message msg{};
+  if (fernotron::buildMessage({centralId, f.group, f.member}, f.cmd, counter, msg) != fernotron::Error::None) {
+    ESP_LOGE(TAG, "cannot build %s for g%u m%u", name(f.cmd), f.group, f.member);
+    return;
+  }
+  counter = fernotron::nextCounter(counter);
+
+  const fernotron::Frame frame = fernotron::encode(msg);
+  const uint32_t frameMs = frame.onAirUs() / 1000 + 1;
+  ESP_LOGI(TAG, "%s g%u m%u (%u merged) x%u: %02x %02x %02x %02x %02x %02x", name(f.cmd), f.group, f.member, f.merged,
+           repeats, msg[0], msg[1], msg[2], msg[3], msg[4], msg[5]);
+
+  for (uint8_t i = 0; i < repeats; i++) {
+    const uint32_t now = nowMs();
+    if (!airtime.tryConsume(now, frameMs)) {
+      ESP_LOGE(TAG, "duty-cycle budget used up (%lu of %lu ms this hour); dropping %s",
+               (unsigned long)airtime.usedMs(now), (unsigned long)airtime.budgetMs(), name(f.cmd));
+      return;
+    }
+    if (!transmitFrame(frame)) {
+      ESP_LOGE(TAG, "RMT transmit failed");
+      return;
+    }
+  }
+}
+
 static void task(void *) {
-  uint8_t counter = 1;
   for (;;) {
+    const TickType_t wait =
+        batcher.pending() ? pdMS_TO_TICKS(batcher.msUntilDue(nowMs())) : portMAX_DELAY;
     Request r;
-    xQueueReceive(requests, &r, portMAX_DELAY);
-
-    fernotron::Message msg{};
-    if (fernotron::buildMessage(r.target, r.cmd, counter, msg) != fernotron::Error::None) continue;
-    counter = fernotron::nextCounter(counter);
-
-    const fernotron::Frame frame = fernotron::encode(msg);
-    const uint32_t frameMs = frame.onAirUs() / 1000 + 1;
-    ESP_LOGI(TAG, "%s g%u m%u x%u: %02x %02x %02x %02x %02x %02x", name(r.cmd), r.target.group, r.target.member,
-             r.repeats, msg[0], msg[1], msg[2], msg[3], msg[4], msg[5]);
-
-    for (uint8_t i = 0; i < r.repeats; i++) {
-      const uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
-      if (!airtime.tryConsume(now, frameMs)) {
-        ESP_LOGE(TAG, "duty-cycle budget used up (%lu of %lu ms this hour); dropping %s",
-                 (unsigned long)airtime.usedMs(now), (unsigned long)airtime.budgetMs(), name(r.cmd));
-        break;
-      }
-      if (!transmitFrame(frame)) {
-        ESP_LOGE(TAG, "RMT transmit failed");
-        break;
-      }
+    if (xQueueReceive(requests, &r, wait) == pdTRUE) {
+      accept(r);
+      drain();
+    }
+    // Merges are recomputed per frame, so commands that arrive while earlier
+    // ones are on air still join, and STOPs still go first.
+    fernotron::Batcher::Frame f;
+    while (batcher.next(nowMs(), f)) {
+      transmit(f);
+      drain();
     }
   }
 }
@@ -102,7 +153,7 @@ esp_err_t init() {
   ESP_RETURN_ON_ERROR(rmt_new_copy_encoder(&encCfg, &encoder), TAG, "RMT encoder");
   ESP_RETURN_ON_ERROR(rmt_enable(channel), TAG, "RMT enable");
 
-  requests = xQueueCreate(8, sizeof(Request));
+  requests = xQueueCreate(32, sizeof(Request));
   if (!requests || xTaskCreate(task, "rf_tx", 4096, nullptr, 6, nullptr) != pdPASS) return ESP_ERR_NO_MEM;
   return ESP_OK;
 }
@@ -111,8 +162,14 @@ bool send(const fernotron::Target &target, fernotron::Command cmd, uint8_t repea
   fernotron::Message probe{};
   if (fernotron::buildMessage(target, cmd, 1, probe) != fernotron::Error::None) return false;
   if (repeats < 1 || repeats > MAX_REPEATS) return false;
-  Request r{target, cmd, repeats};
+  Request r{Request::Kind::Command, target, cmd, repeats, {}};
   return requests && xQueueSend(requests, &r, 0) == pdTRUE;
+}
+
+void setMembers(const uint8_t members[8]) {
+  Request r{Request::Kind::Members, {}, fernotron::Command::Stop, 0, {}};
+  for (int g = 0; g < 8; g++) r.members[g] = members[g];
+  if (requests) xQueueSend(requests, &r, portMAX_DELAY);
 }
 
 }  // namespace rf_tx
