@@ -93,6 +93,6 @@ the plan:
   or second copy.
 - A frame is 141 RMT symbols with the optional 25 ms lead-in.
 
-Still open until captures of our own 2411 exist: tronferno sends 7 preamble
-periods, FernoPy's captures show 6 (configurable in `Timing`), and whether the
-lead-in helps or hurts.
+The defaults (7 preamble periods, 25 ms lead-in) moved a real motor on
+2026-10-23 (`docs/spike-log.md`). Whether FernoPy's 6 periods or no lead-in
+also work is untested; it only matters for airtime.
