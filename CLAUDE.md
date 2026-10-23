@@ -19,8 +19,8 @@ A change is done when host tests pass and the device build succeeds.
 ## Device configuration
 Names, 2411 addresses, travel times and polarity flags live in NVS
 (components/config, main/settings) and change at runtime over the serial
-console, no rebuild: `matter shutter`, `matter house`, `matter cal <n> up|down`
-then `matter cal done`. Shutter slots are fixed: slot i is always the i-th
+console, no rebuild: `matter esp shutter`, `matter esp house`, `matter esp cal <n> up|down`
+then `matter esp cal done`. Shutter slots are fixed: slot i is always the i-th
 cover endpoint, so never reorder or delete slots.
 
 ## Hardware facts
@@ -43,7 +43,7 @@ cover endpoint, so never reorder or delete slots.
 - Never transmit in a loop on hardware without a delay and a repeat limit.
 - All transmissions go through main/rf_tx, which enforces the 10% budget
   per sliding hour (fernotron::Airtime). Never bypass or loosen it.
-- Hand test without Alexa: `matter send <group> <member> up|down|stop`.
+- Hand test without Alexa: `matter esp send <group> <member> up|down|stop`.
 
 ## Architecture rules
 - components/fernotron, components/shutter and components/config are pure

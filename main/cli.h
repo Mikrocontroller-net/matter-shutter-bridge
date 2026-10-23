@@ -1,11 +1,11 @@
 #pragma once
 
-// Serial console commands, under esp-matter's `matter` prefix:
-//   matter shutter | matter shutter <n> name|address|times|invert ...
-//   matter house | matter house id <hex> | matter house repeats <n>
-//   matter cal <n> up|down | matter cal done | matter cal cancel
-//   matter send <group> <member> up|down|stop
-//   matter diag [clear] | matter status
+// Serial console commands, under esp-matter's `matter esp` prefix:
+//   matter esp shutter | matter esp shutter <n> name|address|times|invert ...
+//   matter esp house | matter esp house id <hex> | matter esp house repeats <n>
+//   matter esp cal <n> up|down | matter esp cal done | matter esp cal cancel
+//   matter esp send <group> <member> up|down|stop
+//   matter esp diag [clear] | matter esp status
 namespace cli {
 
 void registerCommands();

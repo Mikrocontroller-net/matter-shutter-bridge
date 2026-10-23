@@ -25,7 +25,7 @@ compared with a 2411 capture (gate G1).
 **Decision.** The 2411 ID, repeat count and per-shutter name, group, member,
 travel times and polarity flags are one versioned blob in NVS
 (`components/config`, `main/settings.cpp`). Console commands change them at
-runtime and take effect immediately; `matter cal <n> up|down` + `matter cal
+runtime and take effect immediately; `matter esp cal <n> up|down` + `matter esp cal
 done` measures travel times with a stopwatch.
 
 **Why.** Calibration happens at the window, not at the compiler, and the

@@ -49,7 +49,7 @@ static void calibrate(const config::Command &c) {
     }
     cal = {true, c.index, c.on, esp_timer_get_time()};
     covers::run(c.index, c.on);
-    printf("shutter %u running %s; enter `matter cal done` the moment it stops\n", (unsigned)(c.index + 1),
+    printf("shutter %u running %s; enter `matter esp cal done` the moment it stops\n", (unsigned)(c.index + 1),
            c.on ? "up" : "down");
     return;
   }
@@ -95,7 +95,7 @@ static esp_err_t run(const char *word, int argc, char **argv) {
   const config::Command c = config::parse(argc + 1, args);
 
   switch (c.op) {
-    case config::Op::Invalid: printf("usage: matter %s\n", c.usage); return ESP_OK;
+    case config::Op::Invalid: printf("usage: matter esp %s\n", c.usage); return ESP_OK;
     case config::Op::List: printShutters(); return ESP_OK;
     case config::Op::ShowHouse: printHouse(); return ESP_OK;
     case config::Op::CalStart:
