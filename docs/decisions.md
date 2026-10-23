@@ -18,7 +18,8 @@ Apps still show 0 % / 100 %.
 
 ## 2026-10-23 — Merge commands for rooms and the whole house
 
-**Decision.** `rf_tx` collects commands for 150 ms in `fernotron::Batcher`.
+**Decision.** `rf_tx` collects commands in `fernotron::Batcher` until 300 ms
+pass without a new one, at most 2 s after the first.
 When every configured motor of a group got the same command it sends one
 frame to (group, member 0); when every configured group is complete, one
 frame to (0, 0). STOPs go first, and merges are recomputed after every frame.
@@ -28,8 +29,12 @@ frame to (0, 0). STOPs go first, and merges are recomputed after every frame.
 last, and a timed STOP queued behind other commands could stop a shutter
 seconds late. Merged, the whole house moves with one ~1.2 s command.
 
-**Cost.** Up to 150 ms latency per command, also for timed STOPs (<1 % of an
-18 s travel). Group frames reach every motor paired to that group on the
+A fixed 150 ms window after the first command was not enough: Alexa sends a
+routine's commands about 200 ms apart (8 commands over 1.3 s), so they left as
+six frames and the last room started moving ~6 s after the first.
+
+**Cost.** 300 ms latency for a single command, also for timed STOPs (~1.7 %
+of an 18 s travel); up to 2 s for a long burst. Group frames reach every motor paired to that group on the
 2411, so the shutter table must list all of them.
 
 ## 2026-10-23 — Radio: one TX task, airtime counted per frame

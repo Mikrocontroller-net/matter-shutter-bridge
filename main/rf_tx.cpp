@@ -20,9 +20,11 @@ static constexpr gpio_num_t DATA_PIN = GPIO_NUM_2;
 static constexpr uint32_t RESOLUTION_HZ = 400000;  // 2.5 us per tick
 static constexpr uint8_t MAX_REPEATS = 8;
 static constexpr int FRAME_TIMEOUT_MS = 1000;
-// Alexa sends one command per shutter for a room or group; this collects them
-// so they can leave as one frame. Also the worst-case delay of a timed STOP.
-static constexpr uint32_t BATCH_WINDOW_MS = 150;
+// Alexa sends one command per shutter for a room, group or routine, about
+// 200 ms apart; a batch leaves after 300 ms without a new command, at most 2 s
+// after its first. The quiet period is also the delay of a timed STOP.
+static constexpr uint32_t BATCH_QUIET_MS = 300;
+static constexpr uint32_t BATCH_MAX_WAIT_MS = 2000;
 
 struct Request {
   enum class Kind : uint8_t { Command, Members } kind;
@@ -67,7 +69,7 @@ static bool transmitFrame(const fernotron::Frame &frame) {
 static uint32_t nowMs() { return (uint32_t)(esp_timer_get_time() / 1000); }
 
 // Task-owned state.
-static fernotron::Batcher batcher(BATCH_WINDOW_MS);
+static fernotron::Batcher batcher(BATCH_QUIET_MS, BATCH_MAX_WAIT_MS);
 static uint32_t centralId = 0;
 static uint8_t repeats = 1;
 static uint8_t counter = 1;

@@ -16,10 +16,19 @@ void Batcher::clearMembers() {
 
 void Batcher::add(uint8_t group, uint8_t member, Command cmd, uint32_t nowMs) {
   if (group >= SIZE || member >= SIZE) return;
+  if (!pending()) {
+    firstMs_ = nowMs;
+    dueMs_ = nowMs + quietMs_;
+  } else if (!reached(nowMs, dueMs_)) {
+    // Still collecting: wait for another quiet period, but not past the
+    // maximum. A batch that is already due stays due.
+    const uint32_t latest = firstMs_ + maxWaitMs_;
+    dueMs_ = (int32_t)(latest - (nowMs + quietMs_)) < 0 ? latest : nowMs + quietMs_;
+  }
   Slot &s = slots_[group][member];
   if (!s.used) {
     s.used = true;
-    s.dueMs = nowMs + windowMs_;
+    s.addedMs = nowMs;
   }
   s.cmd = cmd;
 }
@@ -33,27 +42,10 @@ bool Batcher::pending() const {
   return false;
 }
 
-bool Batcher::anyDue(uint32_t nowMs) const {
-  for (const auto &row : slots_) {
-    for (const Slot &s : row) {
-      if (s.used && reached(nowMs, s.dueMs)) return true;
-    }
-  }
-  return false;
-}
+bool Batcher::due(uint32_t nowMs) const { return pending() && reached(nowMs, dueMs_); }
 
 uint32_t Batcher::msUntilDue(uint32_t nowMs) const {
-  bool found = false;
-  uint32_t best = 0;
-  for (const auto &row : slots_) {
-    for (const Slot &s : row) {
-      if (!s.used) continue;
-      const uint32_t left = reached(nowMs, s.dueMs) ? 0 : s.dueMs - nowMs;
-      if (!found || left < best) best = left;
-      found = true;
-    }
-  }
-  return best;
+  return !pending() || reached(nowMs, dueMs_) ? 0 : dueMs_ - nowMs;
 }
 
 uint8_t Batcher::pendingMask(uint8_t group, Command cmd) const {
@@ -73,7 +65,7 @@ void Batcher::clearMask(uint8_t group, uint8_t mask, Command cmd) {
 }
 
 bool Batcher::next(uint32_t nowMs, Frame &out) {
-  if (!anyDue(nowMs)) return false;
+  if (!due(nowMs)) return false;
 
   // Which command goes next: any STOP, otherwise the oldest command.
   const Slot *oldest = nullptr;
@@ -82,7 +74,7 @@ bool Batcher::next(uint32_t nowMs, Frame &out) {
     for (const Slot &s : row) {
       if (!s.used) continue;
       if (s.cmd == Command::Stop) stop = true;
-      if (!oldest || (int32_t)(s.dueMs - oldest->dueMs) < 0) oldest = &s;
+      if (!oldest || (int32_t)(s.addedMs - oldest->addedMs) < 0) oldest = &s;
     }
   }
   const Command cmd = stop ? Command::Stop : oldest->cmd;
@@ -117,7 +109,7 @@ bool Batcher::next(uint32_t nowMs, Frame &out) {
     for (uint8_t m = 0; m < SIZE; m++) {
       Slot &s = slots_[g][m];
       if (!s.used || s.cmd != cmd) continue;
-      if (!pick || (int32_t)(s.dueMs - pick->dueMs) < 0) {
+      if (!pick || (int32_t)(s.addedMs - pick->addedMs) < 0) {
         pick = &s;
         pickGroup = g;
         pickMember = m;

@@ -252,8 +252,9 @@ Alexa (Echo) ──Matter over Wi-Fi──▶ AtomS3 Lite ──433 MHz──▶
 A Matter command such as "go to 30 % closed" sets the cover's target. The
 shutter controller compares it with the estimated position, sends UP or DOWN,
 and schedules a STOP after the computed travel time. Fully open and fully
-closed simply run into the motor's end stop. Commands collected within
-150 ms are merged when a whole room or the whole house gets the same command.
+closed simply run into the motor's end stop. Commands that arrive less than
+300 ms apart are collected and merged when a whole room or the whole house
+gets the same command.
 The encoder builds the Fernotron message (2411 ID, group, member, command,
 counter, checksum) and the RMT peripheral sends it with hardware timing.
 

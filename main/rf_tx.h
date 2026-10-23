@@ -7,9 +7,9 @@
 
 // 433.92 MHz output through the Unit RF433T on GPIO2, timed by the RMT
 // peripheral. One task owns the channel, so transmissions never overlap.
-// Commands are collected for 150 ms and merged per group or for the whole
-// house when every configured motor got the same command (fernotron::Batcher);
-// STOPs go first.
+// Commands are collected until 300 ms pass without a new one (at most 2 s) and
+// merged per group or for the whole house when every configured motor got the
+// same command (fernotron::Batcher); STOPs go first.
 namespace rf_tx {
 
 // Takes over GPIO2 with the line held LOW (carrier off). Call after the pin
