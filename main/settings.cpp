@@ -13,10 +13,10 @@ static const char *NVS_KEY = "house";
 
 static config::House house;
 static SemaphoreHandle_t mutex;
+static uint8_t blob[config::MAX_BLOB];  // NVS image; used under the mutex or before tasks start
 
 // Caller holds the mutex.
 static bool save() {
-  uint8_t blob[config::MAX_BLOB];
   const size_t len = config::serialize(house, blob, sizeof(blob));
   nvs_handle_t nvs;
   if (len == 0 || nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs) != ESP_OK) return false;
@@ -28,7 +28,6 @@ static bool save() {
 
 void load() {
   mutex = xSemaphoreCreateMutex();
-  uint8_t blob[config::MAX_BLOB];
   size_t len = sizeof(blob);
   nvs_handle_t nvs;
   config::Error err = config::Error::BadBlob;
@@ -43,11 +42,25 @@ void load() {
   }
 }
 
-config::House get() {
+size_t count() {
   xSemaphoreTake(mutex, portMAX_DELAY);
-  const config::House copy = house;
+  const size_t n = house.count;
   xSemaphoreGive(mutex);
-  return copy;
+  return n;
+}
+
+config::Shutter shutter(size_t index) {
+  xSemaphoreTake(mutex, portMAX_DELAY);
+  const config::Shutter s = house.shutters[index];
+  xSemaphoreGive(mutex);
+  return s;
+}
+
+Radio radio() {
+  xSemaphoreTake(mutex, portMAX_DELAY);
+  const Radio r{house.centralId, house.repeats};
+  xSemaphoreGive(mutex);
+  return r;
 }
 
 template <typename Edit>

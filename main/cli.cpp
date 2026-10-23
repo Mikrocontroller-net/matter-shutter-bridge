@@ -25,10 +25,10 @@ struct Calibration {
 static Calibration cal;
 
 static void printShutters() {
-  const config::House h = settings::get();
   printf(" #  ep  name                              grp mem  up_ms down_ms ends mid\n");
-  for (size_t i = 0; i < h.count; i++) {
-    const config::Shutter &s = h.shutters[i];
+  const size_t n = settings::count();
+  for (size_t i = 0; i < n; i++) {
+    const config::Shutter s = settings::shutter(i);
     printf("%2u %3u  %-32s  %3u %3u %6lu %7lu %-4s %s\n", (unsigned)(i + 1), covers::endpointOf(i), s.name, s.group,
            s.member, (unsigned long)s.upMs, (unsigned long)s.downMs, s.invertEnds ? "on" : "off",
            s.invertMid ? "on" : "off");
@@ -36,13 +36,14 @@ static void printShutters() {
 }
 
 static void printHouse() {
-  const config::House h = settings::get();
-  printf("2411 ID %06lx, %u repeats, %u shutters\n", (unsigned long)h.centralId, h.repeats, h.count);
+  const settings::Radio r = settings::radio();
+  printf("2411 ID %06lx, %u repeats, %u shutters\n", (unsigned long)r.centralId, r.repeats,
+         (unsigned)settings::count());
 }
 
 static void calibrate(const config::Command &c) {
   if (c.op == config::Op::CalStart) {
-    if (c.index >= settings::get().count) {
+    if (c.index >= settings::count()) {
       printf("%s\n", config::describe(config::Error::BadIndex));
       return;
     }
@@ -63,7 +64,7 @@ static void calibrate(const config::Command &c) {
     return;
   }
   const uint32_t measured = (uint32_t)((esp_timer_get_time() - cal.startUs) / 1000);
-  const config::Shutter s = settings::get().shutters[cal.index];
+  const config::Shutter s = settings::shutter(cal.index);
   const config::Error err =
       settings::setTimes(cal.index, cal.up ? measured : s.upMs, cal.up ? s.downMs : measured);
   if (err != config::Error::None) {
@@ -76,11 +77,11 @@ static void calibrate(const config::Command &c) {
 }
 
 static void sendDirect(const config::Command &c) {
-  const config::House h = settings::get();
+  const settings::Radio r = settings::radio();
   const fernotron::Command cmd = c.move == config::Move::Up     ? fernotron::Command::Up
                                  : c.move == config::Move::Down ? fernotron::Command::Down
                                                                 : fernotron::Command::Stop;
-  const bool queued = rf_tx::send({h.centralId, (uint8_t)c.a, (uint8_t)c.b}, cmd, h.repeats);
+  const bool queued = rf_tx::send({r.centralId, (uint8_t)c.a, (uint8_t)c.b}, cmd, r.repeats);
   printf("%s\n", queued ? "queued" : "radio refused the command");
 }
 

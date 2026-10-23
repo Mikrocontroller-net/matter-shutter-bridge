@@ -125,8 +125,7 @@ static shutter::Config controllerConfig(const config::Shutter &s) {
 }
 
 esp_err_t create(node_t *node) {
-  const config::House house = settings::get();
-  count = house.count;
+  count = settings::count();
 
 #if CONFIG_FERNO_BRIDGE_LAYOUT
   endpoint::aggregator::config_t aggregatorCfg;
@@ -135,7 +134,7 @@ esp_err_t create(node_t *node) {
 #endif
 
   for (size_t i = 0; i < count; i++) {
-    const config::Shutter &s = house.shutters[i];
+    const config::Shutter s = settings::shutter(i);
     Cover &c = covers[i];
     c.delegate.setIndex((uint8_t)i);
     c.controller = shutter::Controller(controllerConfig(s), shutter::OPEN);
@@ -169,12 +168,12 @@ esp_err_t create(node_t *node) {
 }
 
 static void transmit(size_t i, shutter::Action action) {
-  const config::House house = settings::get();
-  const config::Shutter &s = house.shutters[i];
+  const config::Shutter s = settings::shutter(i);
+  const settings::Radio radio = settings::radio();
   const fernotron::Command cmd = action == shutter::Action::Up     ? fernotron::Command::Up
                                  : action == shutter::Action::Down ? fernotron::Command::Down
                                                                    : fernotron::Command::Stop;
-  if (!rf_tx::send({house.centralId, s.group, s.member}, cmd, house.repeats)) {
+  if (!rf_tx::send({radio.centralId, s.group, s.member}, cmd, radio.repeats)) {
     ESP_LOGE(TAG, "radio refused a command for %s", s.name);
   }
 }
@@ -200,8 +199,7 @@ static void report(Cover &c, uint32_t now, bool syncTarget) {
 }
 
 static void applySettings(size_t i, uint32_t now) {
-  const config::House house = settings::get();
-  const config::Shutter &s = house.shutters[i];
+  const config::Shutter s = settings::shutter(i);
   Cover &c = covers[i];
   c.controller.setTimes({s.upMs, s.downMs}, now);
   c.controller.flags() = controllerConfig(s).flags;
@@ -270,11 +268,10 @@ void reconfigure(size_t index) {
 uint16_t endpointOf(size_t index) { return index < count ? covers[index].endpoint : 0; }
 
 void printStatus() {
-  const config::House house = settings::get();
   const uint32_t now = nowMs();
   for (size_t i = 0; i < count; i++) {
     const Cover &c = covers[i];
-    ESP_LOGI(TAG, "ep %u %-32s position %5u target %5u %s", c.endpoint, house.shutters[i].name,
+    ESP_LOGI(TAG, "ep %u %-32s position %5u target %5u %s", c.endpoint, settings::shutter(i).name,
              c.controller.position(now), c.controller.target(), c.controller.moving() ? "moving" : "stopped");
   }
 }
