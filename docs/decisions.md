@@ -80,16 +80,17 @@ inside ESP-IDF.
 **Cost.** A multi-GB toolchain install and a slow first build; more verbose
 Matter code in `main/`.
 
-## 2026-10-20 — Spike exposes 8 bridged covers by default
+## 2026-10-20 — Bridged covers, not standalone endpoints
 
-**Decision.** The spike creates an Aggregator with one bridged Window Covering
-per shutter, named from firmware ("Wohnzimmer links"). A build option switches
-to standalone endpoints so both layouts can be compared during the spike;
-the final choice is made at gate G0, before anything is paired for real.
+**Decision.** The firmware creates an Aggregator with one bridged Window
+Covering per shutter, named from the configuration. Until 2026-10-23 a build
+option could switch to standalone endpoints for comparison; it was removed
+once Alexa had paired the bridge and moved a real shutter through it
+(`docs/spike-log.md`).
 
 **Why.** 8 shutters, plus optional room covers, is past the point where the
-plan suggests a bridge. Bridged nodes carry their own names; how Alexa names
-8 identical standalone endpoints on one node is unverified.
+plan suggests a bridge. Bridged nodes carry their own names; Alexa listed all
+8 by the names the firmware gave them.
 
 ## 2026-10-20 — Fernotron addressing for this house
 

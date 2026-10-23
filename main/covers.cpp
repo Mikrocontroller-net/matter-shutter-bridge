@@ -139,11 +139,11 @@ esp_err_t create(node_t *node) {
   count = settings::count();
   syncRadioMembers();
 
-#if CONFIG_FERNO_BRIDGE_LAYOUT
+  // Bridge layout: an Aggregator with one bridged node per shutter, each
+  // carrying its own name.
   endpoint::aggregator::config_t aggregatorCfg;
   endpoint_t *aggregator = endpoint::aggregator::create(node, &aggregatorCfg, ENDPOINT_FLAG_NONE, nullptr);
   if (!aggregator) return ESP_FAIL;
-#endif
 
   for (size_t i = 0; i < count; i++) {
     const config::Shutter s = settings::shutter(i);
@@ -153,7 +153,6 @@ esp_err_t create(node_t *node) {
     endpoint::window_covering::config_t cfg(chip::to_underlying(WindowCovering::EndProductType::kRollerShutter));
     fillCoverConfig(cfg, &c.delegate);
 
-#if CONFIG_FERNO_BRIDGE_LAYOUT
     endpoint::bridged_node::config_t bridgedCfg;
     // Fixed per slot, so a renamed shutter is still the same device to Alexa.
     snprintf(bridgedCfg.bridged_device_basic_information.unique_id,
@@ -166,10 +165,6 @@ esp_err_t create(node_t *node) {
     cluster_t *info = cluster::get(ep, BridgedDeviceBasicInformation::Id);
     cluster::bridged_device_basic_information::attribute::create_node_label(info, const_cast<char *>(s.name),
                                                                             (uint16_t)strlen(s.name));
-#else
-    endpoint_t *ep = endpoint::window_covering::create(node, &cfg, ENDPOINT_FLAG_NONE, nullptr);
-    if (!ep) return ESP_FAIL;
-#endif
 
     c.endpoint = endpoint::get_id(ep);
     c.delegate.SetEndpoint(c.endpoint);
@@ -215,14 +210,12 @@ static void applySettings(size_t i, uint32_t now) {
   Cover &c = covers[i];
   c.controller.setTimes({s.upMs, s.downMs}, now);
   c.controller.flags() = controllerConfig(s).flags;
-#if CONFIG_FERNO_BRIDGE_LAYOUT
   char label[config::MAX_NAME_BYTES + 1];
   strncpy(label, s.name, sizeof(label));
   esp_matter_attr_val_t val = esp_matter_char_str(label, (uint16_t)strlen(label));
   lock::ScopedChipStackLock lock(portMAX_DELAY);
   attribute::update(c.endpoint, BridgedDeviceBasicInformation::Id,
                     BridgedDeviceBasicInformation::Attributes::NodeLabel::Id, &val);
-#endif
 }
 
 static void handle(const Event &e, uint32_t now) {
