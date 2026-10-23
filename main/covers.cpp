@@ -102,8 +102,7 @@ static void hookCommandLogging(cluster_t *cluster) {
   }
 }
 
-// Lift only, position aware. Type and end product type are cached by Alexa at
-// pairing, so they must be right before the first commissioning.
+// Lift only, position aware.
 static void fillCoverConfig(endpoint::window_covering::config_t &cfg, Delegate *delegate, uint16_t position) {
   auto &wc = cfg.window_covering;
   wc.type = chip::to_underlying(WindowCovering::Type::kRollerShadeExterior);

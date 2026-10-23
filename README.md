@@ -187,16 +187,10 @@ table stay.
 - Rename shutters and assign rooms in the Alexa app as with any device. Alexa
   takes the names from the stick when pairing; a name changed on the stick
   later may not show up in Alexa, so rename in the app.
-- Alexa files the shutters under the category "Jalousie" (in routines:
-  "Innenjalousien"), although the firmware declares them as exterior roller
-  shutters. Sentences about a
-  category have to use a word Alexa links to it: in testing, "Alexa, mach
-  alle Rollos im Schlafzimmer auf" did not reach the device, while the
-  same shutters work from the app. Which spoken phrases work is still being
-  tested.
+- Voice works with shutter, room and group names, for example "Alexa, mach
+  die Rollos im Schlafzimmer auf".
 - Percentages in the Alexa app mean "percent closed", the Matter convention.
-- The shutters can be used as actions in Alexa routines, where Alexa lists
-  them under "Innenjalousien" (interior blinds).
+- The shutters can be used as actions in Alexa routines.
 
 ## Limitations
 
@@ -235,7 +229,7 @@ legally where you live.
 | Alexa can't find the device | Pairing window closed (replug), phone not on 2.4 GHz or Bluetooth off, or the stick is too far from the phone. |
 | "Gerät reagiert nicht" (device not responding) | Weak Wi-Fi at the stick (check `rssi` in the boot log) or multicast filtering in the router or mesh. |
 | Command in `diag`, shutter doesn't move | 2411 ID not set or wrong, wrong group/member, or out of radio range. |
-| Voice does nothing, app works | Alexa didn't map the sentence to the device; nothing arrives in `diag`. Try the device name with "öffne"/"schließe" or another category word. |
+| Voice does nothing, app works | Alexa didn't map the sentence to the device; nothing arrives in `diag`. Try the device or room name with "öffne"/"schließe". |
 | Shutter stops at the wrong percentage | Travel times not calibrated, or position estimate out of sync: open or close it fully once. |
 
 ## How it works
