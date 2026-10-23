@@ -1,0 +1,12 @@
+Fernomatter
+Copyright 2026 Andreas
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+The Fernotron message layout, parity scheme and transmit timings were worked
+out from tronferno-lib (https://github.com/zwiebert/tronferno-lib) by
+zwiebert, licensed under the MIT License. No source code was copied from it.
+
+Firmware builds link ESP-IDF, esp-matter and the Matter SDK
+(connectedhomeip), which are licensed under the Apache License, Version 2.0,
+and carry their own notices.

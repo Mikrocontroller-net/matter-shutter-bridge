@@ -303,4 +303,6 @@ project is not affiliated with or endorsed by them.
 
 ## License
 
-Not chosen yet.
+Copyright 2026 Andreas. Licensed under the
+[Apache License, Version 2.0](LICENSE); see [NOTICE](NOTICE) for
+attributions.
