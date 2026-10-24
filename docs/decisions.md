@@ -2,19 +2,23 @@
 
 Where this repo deliberately differs from `docs/plan.md`, and why. Newest first.
 
-## 2026-10-23 — Report the ends one hundredth short, keep positions
+## 2026-10-24 — Position unknown after a restart, exact afterwards
 
-**Decision.** `shutter::reportedPosition()` maps fully open (0) to 1 and
-fully closed (10000) to 9999 for everything reported over Matter; the
-estimate itself is unchanged. Positions are saved to NVS whenever a move ends
-and restored at boot.
+**Decision.** Each cover starts with its current and target position null
+(unknown) and reports exact positions from its first command on. Positions
+are still saved to NVS whenever a move ends and restored at boot, but only as
+the controller's starting estimate for partial moves.
 
 **Why.** Alexa does not send "open" to a cover it believes is fully open
 (observed: a routine opening all shutters sent nothing after a restart had
-reset every estimate to open). Fernotron gives no feedback, so the estimate
-can always be wrong; reporting the ends just short of exact keeps open/close
-commands flowing, and the receiver ignores a redundant UP/DOWN anyway.
-Apps still show 0 % / 100 %.
+reset every estimate to open). Reporting the ends one hundredth short of
+exact (0.01 % / 99.99 %) fixed that for Alexa, but Apple Home then never saw a
+commanded end reached: it kept showing "opening"/"closing" and wrong states.
+An unknown position after a restart gives Alexa no reason to skip a command,
+and exact positions keep Apple Home consistent.
+
+**Cost.** Presses on a physical remote still go unseen; until the next full
+open or close through Matter, Alexa may skip a command it believes is done.
 
 ## 2026-10-23 — Merge commands for rooms and the whole house
 

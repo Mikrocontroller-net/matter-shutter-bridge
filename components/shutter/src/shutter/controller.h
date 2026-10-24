@@ -13,15 +13,6 @@ enum class Action : uint8_t { None, Up, Down, Stop };
 // already reached (0.5 %).
 constexpr uint16_t DEADBAND = 50;
 
-// Position as reported to Matter controllers. The ends are reported one
-// hundredth short of fully open/closed: the estimate can be wrong (physical
-// remotes, a restart), and a controller that believes a shutter is already
-// fully open or closed may skip sending "open"/"close" altogether (Alexa does).
-// Shown as 0 % / 100 % all the same.
-constexpr uint16_t reportedPosition(uint16_t position) {
-  return position <= OPEN ? OPEN + 1 : position >= CLOSED ? CLOSED - 1 : position;
-}
-
 // Runtime switches for Alexa's polarity quirks. Ends are targets 0 and 10000
 // (open/close); mid is everything between. Each mirrors its targets.
 struct Flags {

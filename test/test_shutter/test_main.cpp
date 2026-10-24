@@ -272,15 +272,6 @@ static void test_run_ignores_polarity_flags() {
   TEST_ASSERT_EQUAL_UINT16(OPEN, c.target());
 }
 
-static void test_reported_position_never_reaches_the_ends() {
-  TEST_ASSERT_EQUAL_UINT16(1, reportedPosition(OPEN));
-  TEST_ASSERT_EQUAL_UINT16(9999, reportedPosition(CLOSED));
-  TEST_ASSERT_EQUAL_UINT16(1, reportedPosition(1));
-  TEST_ASSERT_EQUAL_UINT16(5000, reportedPosition(5000));
-  TEST_ASSERT_EQUAL_UINT16(9999, reportedPosition(9999));
-  TEST_ASSERT_EQUAL_UINT16(9999, reportedPosition(12000));
-}
-
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_estimator_starts_stopped_at_given_position);
@@ -310,6 +301,5 @@ int main() {
   RUN_TEST(test_controller_new_times_move_end_resend);
   RUN_TEST(test_controller_new_times_when_idle_apply_to_next_move);
   RUN_TEST(test_run_ignores_polarity_flags);
-  RUN_TEST(test_reported_position_never_reaches_the_ends);
   return UNITY_END();
 }

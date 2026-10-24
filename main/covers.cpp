@@ -102,17 +102,19 @@ static void hookCommandLogging(cluster_t *cluster) {
   }
 }
 
-// Lift only, position aware.
-static void fillCoverConfig(endpoint::window_covering::config_t &cfg, Delegate *delegate, uint16_t position) {
+// Lift only, position aware. The position starts out unknown (null) and is
+// published from the first command on: the saved estimate may be stale after a
+// restart, and a controller that believes a shutter is already open or closed
+// may skip sending "open"/"close" (Alexa does).
+static void fillCoverConfig(endpoint::window_covering::config_t &cfg, Delegate *delegate) {
   auto &wc = cfg.window_covering;
   wc.type = chip::to_underlying(WindowCovering::Type::kRollerShadeExterior);
   wc.config_status = chip::to_underlying(WindowCovering::ConfigStatus::kOperational) |
                      chip::to_underlying(WindowCovering::ConfigStatus::kLiftPositionAware);
   wc.feature_flags = cluster::window_covering::feature::lift::get_id() |
                      cluster::window_covering::feature::position_aware_lift::get_id();
-  const uint16_t reported = shutter::reportedPosition(position);
-  wc.features.position_aware_lift.current_position_lift_percent_100ths = nullable<uint16_t>(reported);
-  wc.features.position_aware_lift.target_position_lift_percent_100ths = nullable<uint16_t>(reported);
+  wc.features.position_aware_lift.current_position_lift_percent_100ths = nullable<uint16_t>();
+  wc.features.position_aware_lift.target_position_lift_percent_100ths = nullable<uint16_t>();
   wc.delegate = delegate;
 }
 
@@ -152,7 +154,7 @@ esp_err_t create(node_t *node) {
     const uint16_t position = settings::savedPosition(i);
     c.controller = shutter::Controller(controllerConfig(s), position);
     endpoint::window_covering::config_t cfg(chip::to_underlying(WindowCovering::EndProductType::kRollerShutter));
-    fillCoverConfig(cfg, &c.delegate, position);
+    fillCoverConfig(cfg, &c.delegate);
 
     endpoint::bridged_node::config_t bridgedCfg;
     // Fixed per slot, so a renamed shutter is still the same device to Alexa.
@@ -203,7 +205,7 @@ static void report(Cover &c, uint32_t now, bool syncTarget) {
   const uint16_t pos = c.controller.position(now);
   if (syncTarget && !c.controller.moving()) settings::savePosition((size_t)(&c - covers), pos);
 
-  const auto reported = chip::app::DataModel::MakeNullable<chip::Percent100ths>(shutter::reportedPosition(pos));
+  const auto reported = chip::app::DataModel::MakeNullable<chip::Percent100ths>(pos);
   lock::ScopedChipStackLock lock(portMAX_DELAY);
   CurrentPositionLiftPercent100ths::Set(c.endpoint, reported);
   if (syncTarget) TargetPositionLiftPercent100ths::Set(c.endpoint, reported);
