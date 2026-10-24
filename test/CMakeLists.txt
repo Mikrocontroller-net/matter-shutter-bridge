@@ -34,8 +34,12 @@ add_library(config STATIC
   ${COMPONENTS}/config/src/config/command.cpp)
 target_include_directories(config PUBLIC ${COMPONENTS}/config/src)
 
+add_library(panel STATIC
+  ${COMPONENTS}/panel/src/panel/panel.cpp)
+target_include_directories(panel PUBLIC ${COMPONENTS}/panel/src)
+
 enable_testing()
-foreach(name fernotron shutter config)
+foreach(name fernotron shutter config panel)
   add_executable(test_${name} test_${name}/test_main.cpp)
   target_link_libraries(test_${name} PRIVATE ${name} unity)
   add_test(NAME ${name} COMMAND test_${name})

@@ -1,5 +1,7 @@
 #include "rf_tx.h"
 
+#include <atomic>
+
 #include <driver/rmt_tx.h>
 #include <esp_check.h>
 #include <esp_log.h>
@@ -25,6 +27,9 @@ static constexpr int FRAME_TIMEOUT_MS = 1000;
 // after its first. The quiet period is also the delay of a timed STOP.
 static constexpr uint32_t BATCH_QUIET_MS = 300;
 static constexpr uint32_t BATCH_MAX_WAIT_MS = 2000;
+// While idle, the task still wakes this often to refresh the airtime figure
+// that activity() reports, since booked airtime expires over the hour.
+static constexpr uint32_t IDLE_WAKE_MS = 10000;
 
 struct Request {
   enum class Kind : uint8_t { Command, Members } kind;
@@ -39,6 +44,11 @@ static rmt_encoder_handle_t encoder;
 static QueueHandle_t requests;
 static fernotron::Airtime airtime;
 static rmt_symbol_word_t symbols[fernotron::MAX_MARKS];
+
+// Written by the task, read by activity() from other tasks.
+static std::atomic<bool> anyFrame{false};
+static std::atomic<uint32_t> lastFrameMs{0};
+static std::atomic<uint32_t> airtimeUsedMs{0};
 
 static uint16_t ticks(uint32_t us) { return (uint16_t)(us * 2 / 5); }
 
@@ -115,6 +125,9 @@ static void transmit(const fernotron::Batcher::Frame &f) {
                (unsigned long)airtime.usedMs(now), (unsigned long)airtime.budgetMs(), name(f.cmd));
       return;
     }
+    anyFrame = true;
+    lastFrameMs = now;
+    airtimeUsedMs = airtime.usedMs(now);
     if (!transmitFrame(frame)) {
       ESP_LOGE(TAG, "RMT transmit failed");
       return;
@@ -125,7 +138,7 @@ static void transmit(const fernotron::Batcher::Frame &f) {
 static void task(void *) {
   for (;;) {
     const TickType_t wait =
-        batcher.pending() ? pdMS_TO_TICKS(batcher.msUntilDue(nowMs())) : portMAX_DELAY;
+        batcher.pending() ? pdMS_TO_TICKS(batcher.msUntilDue(nowMs())) : pdMS_TO_TICKS(IDLE_WAKE_MS);
     Request r;
     if (xQueueReceive(requests, &r, wait) == pdTRUE) {
       accept(r);
@@ -138,6 +151,7 @@ static void task(void *) {
       transmit(f);
       drain();
     }
+    airtimeUsedMs = airtime.usedMs(nowMs());
   }
 }
 
@@ -167,6 +181,8 @@ bool send(const fernotron::Target &target, fernotron::Command cmd, uint8_t repea
   Request r{Request::Kind::Command, target, cmd, repeats, {}};
   return requests && xQueueSend(requests, &r, 0) == pdTRUE;
 }
+
+Activity activity() { return {anyFrame, lastFrameMs, airtimeUsedMs, airtime.budgetMs()}; }
 
 void setMembers(const uint8_t members[8]) {
   Request r{Request::Kind::Members, {}, fernotron::Command::Stop, 0, {}};

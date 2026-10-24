@@ -1,0 +1,3 @@
+dependencies:
+  # WS2812 driver for the status LED.
+  espressif/led_strip: "~3.0.3"

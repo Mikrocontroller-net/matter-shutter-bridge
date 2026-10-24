@@ -117,14 +117,19 @@ monitor shows the log and accepts console commands; quit it with `Ctrl+]`.
 
 Alexa then finds a hub named "Rollladen-Bridge" and one device per shutter.
 
-To add a second controller such as Apple Home later, share the bridge from the
-Alexa app (device settings of the hub, "other assistants and apps"). Alexa
-shows a temporary code to enter in the other app.
-The pairing window is open for about 15 minutes after each start; replug the
-stick if it has closed.
+An unpaired stick keeps its pairing window open for about 15 minutes after
+each start; replug it if the window has closed.
 
-These are the Matter SDK's public test codes: anyone within Bluetooth range
-could pair the stick while its pairing window is open.
+To add a second controller such as Apple Home later, either share the bridge
+from the Alexa app (device settings of the hub, "other assistants and apps")
+and enter the code Alexa shows, or hold the stick's button for 3 seconds
+until the LED turns blue and let go. The pairing window then opens for 15
+minutes and the other app pairs with the QR code above. This second way works
+over Wi-Fi only, so the phone must be on the same network.
+
+These are the Matter SDK's public test codes: while the pairing window is open,
+anyone within Bluetooth range (unpaired stick) or on your network (button)
+could pair the stick.
 
 ### 5. Tell it your 2411 and shutters
 
@@ -178,9 +183,26 @@ are saved immediately and survive reboots and firmware updates.
 | `diag` / `diag clear` | List the commands received from Alexa, with values |
 | `status` | Estimated position and motion of each shutter |
 
-Holding the front button for 5 seconds resets the Matter pairing and Wi-Fi;
-the stick restarts and can be paired again. The 2411 ID and the shutter
-table stay.
+## Button and LED
+
+The button is the stick's whole top. What a hold does is decided when you let
+go, and the LED shows it beforehand:
+
+| Hold | LED while holding | When you let go |
+| --- | --- | --- |
+| under 3 s | dim white | nothing |
+| 3–10 s | blue | the pairing window opens for 15 minutes |
+| 10 s or more | blinking red | factory reset: Matter pairing and Wi-Fi are erased and the stick restarts unpaired; the 2411 ID and the shutter table stay |
+
+The rest of the time the LED shows the stick's state:
+
+| LED | Meaning |
+| --- | --- |
+| dim green | connected and idle |
+| white flash | a radio frame going out (one per repeat) |
+| pulsing blue | pairing window open |
+| orange | no Wi-Fi |
+| red | more than 80 % of the hourly radio budget used |
 
 ## Compatibility
 
@@ -232,7 +254,7 @@ legally where you live.
 | Symptom | Likely cause |
 | --- | --- |
 | `Error: 47` after a console command | Missing `esp` prefix: it's `matter esp house`, not `matter house`. |
-| Alexa can't find the device | Pairing window closed (replug), phone not on 2.4 GHz or Bluetooth off, or the stick is too far from the phone. |
+| Alexa can't find the device | Pairing window closed (replug, or hold the button for 3 s), phone not on 2.4 GHz or Bluetooth off, or the stick is too far from the phone. |
 | "Gerät reagiert nicht" (device not responding) | Weak Wi-Fi at the stick (check `rssi` in the boot log) or multicast filtering in the router or mesh. |
 | Command in `diag`, shutter doesn't move | 2411 ID not set or wrong, wrong group/member, or out of radio range. |
 | Voice does nothing, app works | Alexa didn't map the sentence to the device; nothing arrives in `diag`. Try the device or room name with "öffne"/"schließe". |
@@ -262,15 +284,16 @@ counter, checksum) and the RMT peripheral sends it with hardware timing.
 
 | Path | Contents |
 | --- | --- |
-| `main/` | ESP-IDF adapters: Matter bridge (`covers`), radio (`rf_tx`), settings in NVS, console, command log |
+| `main/` | ESP-IDF adapters: Matter bridge (`covers`), radio (`rf_tx`), button and LED (`panel_hw`), settings in NVS, console, command log |
 | `components/fernotron/` | Fernotron message builder, frame encoder, duty-cycle guard, command batcher |
 | `components/shutter/` | Position estimator and command controller |
 | `components/config/` | Configuration model, storage format and console command parser |
-| `test/` | Host unit tests (Unity) for the three components |
+| `components/panel/` | What the LED shows and what button holds do |
+| `test/` | Host unit tests (Unity) for the four components |
 | `tools/` | Toolchain setup, environment and host test scripts |
 | `docs/` | Original build plan, design decisions, test log from real hardware |
 
-The three components are plain C++17 without ESP-IDF headers, so most logic
+The four components are plain C++17 without ESP-IDF headers, so most logic
 is tested on the computer:
 
 ```bash

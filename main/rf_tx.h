@@ -27,4 +27,14 @@ bool send(const fernotron::Target &target, fernotron::Command cmd, uint8_t repea
 // to those groups on the 2411.
 void setMembers(const uint8_t members[8]);
 
+// For the status LED: the latest frame and how much of the hour's duty-cycle
+// budget is used. Safe to call from any task.
+struct Activity {
+  bool anyFrame;         // a frame has gone out since boot
+  uint32_t lastFrameMs;  // esp_timer milliseconds at its start
+  uint32_t airtimeUsedMs;
+  uint32_t airtimeBudgetMs;
+};
+Activity activity();
+
 }  // namespace rf_tx

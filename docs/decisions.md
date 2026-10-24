@@ -2,6 +2,21 @@
 
 Where this repo deliberately differs from `docs/plan.md`, and why. Newest first.
 
+## 2026-10-24 — Pairing window and reset on the button, status on the LED
+
+**Decision.** Holding the button 3 s opens a pairing window for 15 minutes,
+10 s factory-resets; both happen on release, and the LED shows beforehand
+which one a release will trigger. The window is advertised over Wi-Fi only
+(DNS-SD). The LED otherwise shows status: radio frames, pairing window, no
+Wi-Fi, airtime above 80 %, idle.
+
+**Why.** A commissioned stick opens no pairing window by itself, so a second
+controller needed Alexa's share flow. Bluetooth is released after the first
+pairing, which leaves Wi-Fi for the button's window. The reset moved from
+5 s (immediate) to 10 s (on release) so it cannot be hit while aiming for
+pairing. The SDK posts no events for the pairing window here, so the LED task
+polls its state on the Matter task every 500 ms.
+
 ## 2026-10-24 — Report exact positions, kept across restarts
 
 **Decision.** Positions are reported exactly (0 = open, 10000 = closed). They
