@@ -182,13 +182,20 @@ Holding the front button for 5 seconds resets the Matter pairing and Wi-Fi;
 the stick restarts and can be paired again. The 2411 ID and the shutter
 table stay.
 
+## Compatibility
+
+| Controller | App | Voice | Routines / automations |
+| --- | --- | --- | --- |
+| Apple Home | Yes | Yes (Siri) | Not tested (needs a home hub) |
+| Amazon Alexa | Yes | Only reliable through routines with a custom phrase | Yes |
+
 ## Using it with Alexa
 
 - Rename shutters and assign rooms in the Alexa app as with any device. Alexa
   takes the names from the stick when pairing; a name changed on the stick
   later may not show up in Alexa, so rename in the app.
-- Voice works with shutter, room and group names, for example "Alexa, mach
-  die Rollos im Schlafzimmer auf".
+- For voice control, create a routine with your own phrase, for example
+  "Alexa, Rollos im Schlafzimmer auf", that opens the shutters.
 - Percentages in the Alexa app mean "percent closed", the Matter convention.
 - The shutters can be used as actions in Alexa routines.
 
