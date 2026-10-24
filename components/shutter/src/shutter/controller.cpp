@@ -68,8 +68,7 @@ Action Controller::tick(uint32_t now) {
   const Pending done = pending_;
   pending_ = Pending::None;
   est_.stopAt(target_);
-  if (done == Pending::MidStop) return Action::Stop;
-  return cfg_.resendAtEnd ? (target_ == OPEN ? Action::Up : Action::Down) : Action::None;
+  return done == Pending::MidStop ? Action::Stop : Action::None;
 }
 
 }  // namespace shutter

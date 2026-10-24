@@ -2,6 +2,25 @@
 
 The main design decisions and why they were made. Newest first.
 
+## 2026-10-24 — Interleaved copies, no repeat at the end of travel
+
+**Decision.** `rf_tx` sends the copies of all commands on air in turn, one
+copy per command (`fernotron::Interleaver`), instead of each command's copies
+back to back. A STOP goes next, and a newer command drops the remaining
+copies of older ones for an overlapping address. The controller no longer
+repeats an open/close command when the shutter should have reached its end.
+
+**Why.** In a routine closing every room, the last room's first copy left
+~5.7 s after the first room's, and a bathroom shutter that missed its 4
+back-to-back copies only moved on the repeat at the end of travel, ~21 s
+later. Interleaved, every room gets a copy within about one round (~1.2 s
+for four rooms) and each command's copies spread over several seconds, so a
+short burst of interference rarely hits all of them. The repeat at the end of
+travel came too late to help and cost as much airtime as a whole command.
+
+**Cost.** A single command's copies still go out back to back, so a shutter
+that misses all of them is not retried.
+
 ## 2026-10-24 — Per-device setup code, generated on the device
 
 **Decision.** At its first start each stick draws a random setup passcode,
@@ -59,7 +78,7 @@ open or close through Matter, Alexa may skip a command it believes is done.
 pass without a new one, at most 2 s after the first.
 When every configured motor of a group got the same command it sends one
 frame to (group, member 0); when every configured group is complete, one
-frame to (0, 0). STOPs go first, and merges are recomputed after every frame.
+frame to (0, 0). STOPs go first.
 
 **Why.** Alexa sends one Matter command per shutter for a room or group. At
 ~1.2 s per command with 4 repeats, "all shutters" took ~9 s from first to
@@ -78,19 +97,19 @@ of an 18 s travel); up to 2 s for a long burst. Group frames reach every motor p
 
 **Decision.** `main/rf_tx` owns the RMT channel (GPIO2, 400 kHz, idle and
 end-of-transmission LOW) and the Fernotron counter. A command is queued, gets
-the next counter value and goes out `house repeats` times with that counter;
-each frame's 42.8 ms trailing gap separates the repeats. Every frame, lead-in
+the next counter value and goes out `house repeats` times with that counter,
+interleaved with the copies of other commands (2026-10-24). Every frame, lead-in
 included, is sent as tronferno does.
 
 Before each frame, `fernotron::Airtime` books its airtime against 360 s per
-sliding hour (10 %); when the budget is used up the rest of that command is
-dropped and logged. Airtime counts the whole frame up to its last pulse, not
+sliding hour (10 %); when the budget is used up the copy is dropped and
+logged. Airtime counts the whole frame up to its last pulse, not
 just carrier-on time, which is the conservative reading of the duty-cycle
 rule. One command with 4 repeats costs about 1 s, so roughly 370 commands an
 hour fit.
 
-**Unverified.** Nothing has been transmitted yet; frames have not been
-compared with a 2411 capture (gate G1).
+Real motors accept these frames since 2026-10-23; they have not been compared
+bit for bit with a 2411 capture.
 
 ## 2026-10-23 — Configuration lives in NVS, edited over the serial console
 

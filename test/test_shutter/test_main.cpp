@@ -74,26 +74,14 @@ static void test_close_sends_down_and_reports_moving() {
   TEST_ASSERT_EQUAL_UINT16(CLOSED, c.target());
 }
 
-static void test_close_resends_down_at_end_of_travel_then_stalls() {
+static void test_close_stops_after_travel_plus_margin_without_sending() {
   Controller c = make();
   c.goTo(CLOSED, 0);
   TEST_ASSERT_EQUAL(Action::None, c.tick(TIMES.downMs));  // estimate is at the end, margin not over yet
   TEST_ASSERT_TRUE(c.moving());
-  TEST_ASSERT_EQUAL(Action::Down, c.tick(TIMES.downMs + MARGIN));
+  TEST_ASSERT_EQUAL(Action::None, c.tick(TIMES.downMs + MARGIN));  // the motor stops at its end stop
   TEST_ASSERT_FALSE(c.moving());
   TEST_ASSERT_EQUAL_UINT16(CLOSED, c.position(TIMES.downMs + MARGIN));
-  TEST_ASSERT_EQUAL(Action::None, c.tick(TIMES.downMs + MARGIN + 1));  // re-sent only once
-}
-
-static void test_end_resend_can_be_disabled() {
-  Config cfg;
-  cfg.times = TIMES;
-  cfg.endMarginMs = MARGIN;
-  cfg.resendAtEnd = false;
-  Controller c(cfg, OPEN);
-  c.goTo(CLOSED, 0);
-  TEST_ASSERT_EQUAL(Action::None, c.tick(TIMES.downMs + MARGIN));
-  TEST_ASSERT_FALSE(c.moving());
 }
 
 static void test_open_from_half_takes_half_the_up_time() {
@@ -101,7 +89,9 @@ static void test_open_from_half_takes_half_the_up_time() {
   TEST_ASSERT_EQUAL(Action::Up, c.goTo(OPEN, 0));
   TEST_ASSERT_TRUE(c.moving());
   TEST_ASSERT_EQUAL(Action::None, c.tick(TIMES.upMs / 2 + MARGIN - 1));
-  TEST_ASSERT_EQUAL(Action::Up, c.tick(TIMES.upMs / 2 + MARGIN));
+  TEST_ASSERT_TRUE(c.moving());
+  TEST_ASSERT_EQUAL(Action::None, c.tick(TIMES.upMs / 2 + MARGIN));
+  TEST_ASSERT_FALSE(c.moving());
   TEST_ASSERT_EQUAL_UINT16(OPEN, c.position(TIMES.upMs));
 }
 
@@ -159,7 +149,7 @@ static void test_stop_mid_travel_freezes_estimate() {
   TEST_ASSERT_FALSE(c.moving());
   TEST_ASSERT_EQUAL_UINT16(2500, c.position(TIMES.downMs));
   TEST_ASSERT_EQUAL_UINT16(2500, c.target());
-  TEST_ASSERT_EQUAL(Action::None, c.tick(TIMES.downMs * 2));  // no stale end re-send
+  TEST_ASSERT_EQUAL(Action::None, c.tick(TIMES.downMs * 2));
 }
 
 static void test_stop_when_idle_still_sends_stop() {
@@ -175,7 +165,8 @@ static void test_reversal_mid_travel_starts_from_current_estimate() {
   TEST_ASSERT_EQUAL(Action::Up, c.goTo(OPEN, half));
   TEST_ASSERT_EQUAL(Direction::Up, c.direction());
   TEST_ASSERT_EQUAL_UINT16(2500, c.position(half + TIMES.upMs / 4));
-  TEST_ASSERT_EQUAL(Action::Up, c.tick(half + TIMES.upMs / 2 + MARGIN));
+  TEST_ASSERT_EQUAL(Action::None, c.tick(half + TIMES.upMs / 2 + MARGIN));
+  TEST_ASSERT_FALSE(c.moving());
   TEST_ASSERT_EQUAL_UINT16(OPEN, c.position(half + TIMES.upMs / 2 + MARGIN));
 }
 
@@ -245,12 +236,14 @@ static void test_controller_new_times_move_pending_mid_stop() {
   TEST_ASSERT_EQUAL_UINT16(3000, c.position(due));
 }
 
-static void test_controller_new_times_move_end_resend() {
+static void test_controller_new_times_move_end_arrival() {
   Controller c = make();
   c.goTo(CLOSED, 0);
   c.setTimes({TIMES.upMs, TIMES.downMs * 2}, 0);
-  TEST_ASSERT_EQUAL(Action::None, c.tick(TIMES.downMs + MARGIN));
-  TEST_ASSERT_EQUAL(Action::Down, c.tick(TIMES.downMs * 2 + MARGIN));
+  c.tick(TIMES.downMs + MARGIN);
+  TEST_ASSERT_TRUE(c.moving());
+  c.tick(TIMES.downMs * 2 + MARGIN);
+  TEST_ASSERT_FALSE(c.moving());
 }
 
 static void test_controller_new_times_when_idle_apply_to_next_move() {
@@ -267,7 +260,7 @@ static void test_run_ignores_polarity_flags() {
   Controller c = make(f, OPEN);
   TEST_ASSERT_EQUAL(Action::Down, c.run(Direction::Down, 0));
   TEST_ASSERT_EQUAL_UINT16(CLOSED, c.target());
-  TEST_ASSERT_EQUAL(Action::Down, c.tick(TIMES.downMs + MARGIN));
+  TEST_ASSERT_EQUAL(Action::None, c.tick(TIMES.downMs + MARGIN));
   TEST_ASSERT_EQUAL(Action::Up, c.run(Direction::Up, TIMES.downMs + MARGIN));
   TEST_ASSERT_EQUAL_UINT16(OPEN, c.target());
 }
@@ -281,8 +274,7 @@ int main() {
   RUN_TEST(test_estimator_duration_between_positions);
   RUN_TEST(test_estimator_survives_millis_wraparound);
   RUN_TEST(test_close_sends_down_and_reports_moving);
-  RUN_TEST(test_close_resends_down_at_end_of_travel_then_stalls);
-  RUN_TEST(test_end_resend_can_be_disabled);
+  RUN_TEST(test_close_stops_after_travel_plus_margin_without_sending);
   RUN_TEST(test_open_from_half_takes_half_the_up_time);
   RUN_TEST(test_end_target_always_sends_even_when_estimate_is_there);
   RUN_TEST(test_mid_target_down_sends_timed_stop);
@@ -298,7 +290,7 @@ int main() {
   RUN_TEST(test_out_of_range_target_is_clamped);
   RUN_TEST(test_estimator_new_times_continue_from_current_position);
   RUN_TEST(test_controller_new_times_move_pending_mid_stop);
-  RUN_TEST(test_controller_new_times_move_end_resend);
+  RUN_TEST(test_controller_new_times_move_end_arrival);
   RUN_TEST(test_controller_new_times_when_idle_apply_to_next_move);
   RUN_TEST(test_run_ignores_polarity_flags);
   return UNITY_END();

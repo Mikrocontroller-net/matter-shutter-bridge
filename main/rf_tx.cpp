@@ -13,6 +13,7 @@
 #include <fernotron/airtime.h>
 #include <fernotron/batcher.h>
 #include <fernotron/encoder.h>
+#include <fernotron/interleaver.h>
 
 namespace rf_tx {
 
@@ -80,6 +81,7 @@ static uint32_t nowMs() { return (uint32_t)(esp_timer_get_time() / 1000); }
 
 // Task-owned state.
 static fernotron::Batcher batcher(BATCH_QUIET_MS, BATCH_MAX_WAIT_MS);
+static fernotron::Interleaver onAir;
 static uint32_t centralId = 0;
 static uint8_t repeats = 1;
 static uint8_t counter = 1;
@@ -104,53 +106,56 @@ static void drain() {
   while (xQueueReceive(requests, &r, 0) == pdTRUE) accept(r);
 }
 
-// One command: next counter value, `repeats` identical frames.
-static void transmit(const fernotron::Batcher::Frame &f) {
-  fernotron::Message msg{};
-  if (fernotron::buildMessage({centralId, f.group, f.member}, f.cmd, counter, msg) != fernotron::Error::None) {
+// One command: the next counter value, then `repeats` copies on air.
+static void enqueue(const fernotron::Batcher::Frame &f) {
+  fernotron::Transmission t{};
+  if (fernotron::buildMessage({centralId, f.group, f.member}, f.cmd, counter, t.message) != fernotron::Error::None) {
     ESP_LOGE(TAG, "cannot build %s for g%u m%u", name(f.cmd), f.group, f.member);
     return;
   }
   counter = fernotron::nextCounter(counter);
-
-  const fernotron::Frame frame = fernotron::encode(msg);
-  const uint32_t frameMs = frame.onAirUs() / 1000 + 1;
+  t.frame = f;
+  t.copiesLeft = repeats;
+  const fernotron::Message &m = t.message;
   ESP_LOGI(TAG, "%s g%u m%u (%u merged) x%u: %02x %02x %02x %02x %02x %02x", name(f.cmd), f.group, f.member, f.merged,
-           repeats, msg[0], msg[1], msg[2], msg[3], msg[4], msg[5]);
+           repeats, m[0], m[1], m[2], m[3], m[4], m[5]);
+  if (!onAir.add(t)) ESP_LOGE(TAG, "too many commands on air; dropping %s", name(f.cmd));
+}
 
-  for (uint8_t i = 0; i < repeats; i++) {
-    const uint32_t now = nowMs();
-    if (!airtime.tryConsume(now, frameMs)) {
-      ESP_LOGE(TAG, "duty-cycle budget used up (%lu of %lu ms this hour); dropping %s",
-               (unsigned long)airtime.usedMs(now), (unsigned long)airtime.budgetMs(), name(f.cmd));
-      return;
-    }
-    anyFrame = true;
-    lastFrameMs = now;
-    airtimeUsedMs = airtime.usedMs(now);
-    if (!transmitFrame(frame)) {
-      ESP_LOGE(TAG, "RMT transmit failed");
-      return;
-    }
+static void sendCopy(const fernotron::Transmission &t) {
+  const fernotron::Frame frame = fernotron::encode(t.message);
+  const uint32_t frameMs = frame.onAirUs() / 1000 + 1;
+  const uint32_t now = nowMs();
+  if (!airtime.tryConsume(now, frameMs)) {
+    ESP_LOGE(TAG, "duty-cycle budget used up (%lu of %lu ms this hour); dropping a copy of %s",
+             (unsigned long)airtime.usedMs(now), (unsigned long)airtime.budgetMs(), name(t.frame.cmd));
+    return;
   }
+  anyFrame = true;
+  lastFrameMs = now;
+  airtimeUsedMs = airtime.usedMs(now);
+  if (!transmitFrame(frame)) ESP_LOGE(TAG, "RMT transmit failed");
 }
 
 static void task(void *) {
   for (;;) {
-    const TickType_t wait =
-        batcher.pending() ? pdMS_TO_TICKS(batcher.msUntilDue(nowMs())) : pdMS_TO_TICKS(IDLE_WAKE_MS);
+    TickType_t wait = pdMS_TO_TICKS(IDLE_WAKE_MS);
+    if (!onAir.empty()) {
+      wait = 0;
+    } else if (batcher.pending()) {
+      wait = pdMS_TO_TICKS(batcher.msUntilDue(nowMs()));
+    }
     Request r;
     if (xQueueReceive(requests, &r, wait) == pdTRUE) {
       accept(r);
       drain();
     }
-    // Merges are recomputed per frame, so commands that arrive while earlier
-    // ones are on air still join, and STOPs still go first.
+    // Released frames join the copies on air; one copy goes out per pass, so
+    // new commands and STOPs wait for at most one frame.
     fernotron::Batcher::Frame f;
-    while (batcher.next(nowMs(), f)) {
-      transmit(f);
-      drain();
-    }
+    while (batcher.next(nowMs(), f)) enqueue(f);
+    fernotron::Transmission t;
+    if (onAir.next(t)) sendCopy(t);
     airtimeUsedMs = airtime.usedMs(nowMs());
   }
 }

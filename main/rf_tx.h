@@ -9,7 +9,8 @@
 // peripheral. One task owns the channel, so transmissions never overlap.
 // Commands are collected until 300 ms pass without a new one (at most 2 s) and
 // merged per group or for the whole house when every configured motor got the
-// same command (fernotron::Batcher); STOPs go first.
+// same command (fernotron::Batcher). The copies of the commands on air go out
+// in turn, one per command (fernotron::Interleaver); STOPs go first.
 namespace rf_tx {
 
 // Takes over GPIO2 with the line held LOW (carrier off). Call after the pin
@@ -18,7 +19,7 @@ esp_err_t init();
 
 // Queues one command for a central-unit address. Each frame that leaves gets
 // the next Fernotron counter value and goes out `repeats` times with that same
-// counter. Returns false if the command cannot be built or the queue is full;
+// counter, interleaved with the copies of other commands. Returns false if the command cannot be built or the queue is full;
 // refusals for airtime are logged by the task.
 bool send(const fernotron::Target &target, fernotron::Command cmd, uint8_t repeats);
 

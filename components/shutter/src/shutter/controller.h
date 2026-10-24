@@ -26,8 +26,6 @@ struct Config {
   // Extra time past the estimated arrival at an end before the shutter is
   // reported stopped, so the estimate resyncs against the end stop.
   uint32_t endMarginMs = 2000;
-  // Repeat the end command once at that point, for a shutter that missed it.
-  bool resendAtEnd = true;
 };
 
 // Turns Matter targets into Fernotron UP / DOWN / STOP actions for one
@@ -44,10 +42,10 @@ class Controller {
   Action run(Direction dir, uint32_t now);
   // StopMotion. Always transmits STOP, since a remote may have moved it.
   Action stop(uint32_t now);
-  // Call often; returns a scheduled STOP or end re-send when one is due.
+  // Call often; returns a scheduled STOP when one is due.
   Action tick(uint32_t now);
   // New calibration. A move in progress keeps going and its scheduled STOP
-  // or end re-send is rescheduled for the new times.
+  // or arrival at the end is rescheduled for the new times.
   void setTimes(TravelTimes times, uint32_t now);
 
   uint16_t position(uint32_t now) const { return est_.position(now); }
