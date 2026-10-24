@@ -1,10 +1,9 @@
 # Fernotron Matter bridge
 
 ESP32-S3 firmware (M5Stack AtomS3 Lite) that exposes Rademacher Fernotron
-shutters to Alexa as Matter Window Coverings, transmitting on 433.92 MHz
-through an M5Stack Unit RF433T. The build plan is in docs/plan.md; where this
-repo deliberately differs from it, docs/decisions.md says so and why.
-What the real hardware and Alexa did is recorded in docs/spike-log.md.
+shutters to Matter controllers (Alexa, Apple Home) as Window Coverings,
+transmitting on 433.92 MHz through an M5Stack Unit RF433T. Design decisions
+and their reasons are in docs/decisions.md.
 
 The house: 8 shutters in 4 rooms, one 2411 group per room (1-4), members 1-2.
 

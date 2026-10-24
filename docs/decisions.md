@@ -1,6 +1,6 @@
 # Decisions
 
-Where this repo deliberately differs from `docs/plan.md`, and why. Newest first.
+The main design decisions and why they were made. Newest first.
 
 ## 2026-10-24 — Per-device setup code, generated on the device
 
@@ -130,8 +130,8 @@ inside ESP-IDF.
   StopMotion from "target equals current", hides the fabric index (which
   `CLAUDE.md` requires in diag) and has no bridge support.
 - esp-matter exposes all of that directly, has bridge examples, and is
-  Espressif's primary Matter path. The plan already named it as the escape
-  hatch; `components/fernotron` and `components/shutter` moved over unchanged.
+  Espressif's primary Matter path. `components/fernotron` and
+  `components/shutter` moved over unchanged.
 
 **Cost.** A multi-GB toolchain install and a slow first build; more verbose
 Matter code in `main/`.
@@ -141,12 +141,10 @@ Matter code in `main/`.
 **Decision.** The firmware creates an Aggregator with one bridged Window
 Covering per shutter, named from the configuration. Until 2026-10-23 a build
 option could switch to standalone endpoints for comparison; it was removed
-once Alexa had paired the bridge and moved a real shutter through it
-(`docs/spike-log.md`).
+once Alexa had paired the bridge and moved a real shutter through it.
 
-**Why.** 8 shutters, plus optional room covers, is past the point where the
-plan suggests a bridge. Bridged nodes carry their own names; Alexa listed all
-8 by the names the firmware gave them.
+**Why.** Bridged nodes carry their own names; Alexa listed all 8 by the
+names the firmware gave them.
 
 ## 2026-10-20 — Fernotron addressing for this house
 
@@ -155,10 +153,10 @@ one frame to group *g*, member 0, which reaches both shutters at once.
 
 ## 2026-10-20 — Protocol details settled from reference code
 
-`docs/plan.md` marked the message layout as approximate. Reading tronferno-lib
+The original plan marked the message layout as approximate. Reading tronferno-lib
 (MIT licence, not GPL as assumed) and FernoPy's URH decoder settled it; see
 `components/fernotron/src/fernotron/message.h` and `encoder.h`. Corrections to
-the plan:
+the original assumptions:
 
 - The gap before each 10-bit word is 9 bit times (400 µs on, 3200 µs off),
   not 8.
@@ -167,5 +165,5 @@ the plan:
 - A frame is 141 RMT symbols with the optional 25 ms lead-in.
 
 The defaults (7 preamble periods, 25 ms lead-in) moved a real motor on
-2026-10-23 (`docs/spike-log.md`). Whether FernoPy's 6 periods or no lead-in
+2026-10-23. Whether FernoPy's 6 periods or no lead-in
 also work is untested; it only matters for airtime.

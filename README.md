@@ -296,11 +296,12 @@ counter, checksum) and the RMT peripheral sends it with hardware timing.
 | `components/shutter/` | Position estimator and command controller |
 | `components/config/` | Configuration model, storage format and console command parser |
 | `components/panel/` | What the LED shows and what button holds do |
-| `test/` | Host unit tests (Unity) for the four components |
+| `components/pairing/` | Per-device setup code: generation and storage format |
+| `test/` | Host unit tests (Unity) for the five components |
 | `tools/` | Toolchain setup, environment and host test scripts |
-| `docs/` | Original build plan, design decisions, test log from real hardware |
+| `docs/` | Design decisions |
 
-The four components are plain C++17 without ESP-IDF headers, so most logic
+The five components are plain C++17 without ESP-IDF headers, so most logic
 is tested on the computer:
 
 ```bash
@@ -308,9 +309,7 @@ tools/host_test.sh
 ```
 
 [`docs/decisions.md`](docs/decisions.md) explains the main design choices
-(ESP-IDF instead of Arduino, bridge layout, merging) and
-[`docs/spike-log.md`](docs/spike-log.md) records what was observed with real
-hardware and Alexa.
+(ESP-IDF instead of Arduino, bridge layout, merging, position reporting).
 
 ## Acknowledgements
 
