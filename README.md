@@ -10,8 +10,8 @@ and translates Alexa's commands into the same radio frames your Fernotron
 central unit (2411) sends. Your shutters cannot tell the difference, and your
 existing remotes keep working.
 
-> **Status: working prototype.** Pairing with Alexa and moving real shutters
-> work. It uses Matter **test certificates**, so Alexa shows it as an
+> **Status: working.** In daily use with Alexa and Apple Home on 8 shutters.
+> It uses Matter **test certificates**, so the apps show it as an
 > uncertified device. Treat it as a hobby project, not a finished product;
 > see [Limitations](#limitations).
 
