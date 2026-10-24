@@ -201,7 +201,6 @@ table stay.
   resyncs on every full open or close. Presses on physical remotes are not
   seen, so the estimate can be off until the next full open or close; Alexa
   may then skip "open" or "close" for a shutter it believes is already there.
-  After a restart the position shows as unknown until the first command.
 - **Fixed number of shutters** after the first boot (8 by default, up to 16 in
   the code). Adding or removing shutters at runtime is not supported yet.
 - **The shutter table must list every motor of each group used.** Room and

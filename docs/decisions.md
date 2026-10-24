@@ -2,20 +2,19 @@
 
 Where this repo deliberately differs from `docs/plan.md`, and why. Newest first.
 
-## 2026-10-24 — Position unknown after a restart, exact afterwards
+## 2026-10-24 — Report exact positions, kept across restarts
 
-**Decision.** Each cover starts with its current and target position null
-(unknown) and reports exact positions from its first command on. Positions
-are still saved to NVS whenever a move ends and restored at boot, but only as
-the controller's starting estimate for partial moves.
+**Decision.** Positions are reported exactly (0 = open, 10000 = closed). They
+are saved to NVS whenever a move ends and reported from boot on.
 
 **Why.** Alexa does not send "open" to a cover it believes is fully open
 (observed: a routine opening all shutters sent nothing after a restart had
-reset every estimate to open). Reporting the ends one hundredth short of
-exact (0.01 % / 99.99 %) fixed that for Alexa, but Apple Home then never saw a
-commanded end reached: it kept showing "opening"/"closing" and wrong states.
-An unknown position after a restart gives Alexa no reason to skip a command,
-and exact positions keep Apple Home consistent.
+reset every estimate to open). Two workarounds failed with Apple Home:
+reporting the ends one hundredth short of exact (0.01 % / 99.99 %) left it
+showing "opening"/"closing" because a commanded end was never reached, and a
+null (unknown) position after a restart made it show every cover as not
+responding. Keeping the position across restarts removes the cause Alexa
+tripped over.
 
 **Cost.** Presses on a physical remote still go unseen; until the next full
 open or close through Matter, Alexa may skip a command it believes is done.

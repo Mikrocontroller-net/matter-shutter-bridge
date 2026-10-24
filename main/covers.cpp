@@ -102,19 +102,18 @@ static void hookCommandLogging(cluster_t *cluster) {
   }
 }
 
-// Lift only, position aware. The position starts out unknown (null) and is
-// published from the first command on: the saved estimate may be stale after a
-// restart, and a controller that believes a shutter is already open or closed
-// may skip sending "open"/"close" (Alexa does).
-static void fillCoverConfig(endpoint::window_covering::config_t &cfg, Delegate *delegate) {
+// Lift only, position aware, starting at the position saved before the
+// restart. Never null: Apple Home shows a cover without a position as not
+// responding.
+static void fillCoverConfig(endpoint::window_covering::config_t &cfg, Delegate *delegate, uint16_t position) {
   auto &wc = cfg.window_covering;
   wc.type = chip::to_underlying(WindowCovering::Type::kRollerShadeExterior);
   wc.config_status = chip::to_underlying(WindowCovering::ConfigStatus::kOperational) |
                      chip::to_underlying(WindowCovering::ConfigStatus::kLiftPositionAware);
   wc.feature_flags = cluster::window_covering::feature::lift::get_id() |
                      cluster::window_covering::feature::position_aware_lift::get_id();
-  wc.features.position_aware_lift.current_position_lift_percent_100ths = nullable<uint16_t>();
-  wc.features.position_aware_lift.target_position_lift_percent_100ths = nullable<uint16_t>();
+  wc.features.position_aware_lift.current_position_lift_percent_100ths = nullable<uint16_t>(position);
+  wc.features.position_aware_lift.target_position_lift_percent_100ths = nullable<uint16_t>(position);
   wc.delegate = delegate;
 }
 
@@ -154,7 +153,7 @@ esp_err_t create(node_t *node) {
     const uint16_t position = settings::savedPosition(i);
     c.controller = shutter::Controller(controllerConfig(s), position);
     endpoint::window_covering::config_t cfg(chip::to_underlying(WindowCovering::EndProductType::kRollerShutter));
-    fillCoverConfig(cfg, &c.delegate);
+    fillCoverConfig(cfg, &c.delegate, position);
 
     endpoint::bridged_node::config_t bridgedCfg;
     // Fixed per slot, so a renamed shutter is still the same device to Alexa.
