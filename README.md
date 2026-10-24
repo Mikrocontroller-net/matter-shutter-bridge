@@ -1,10 +1,10 @@
-# Fernomatter
+# matter-shutter-bridge
 
 Control Rademacher **Fernotron** roller shutters with **Matter** controllers
 such as Apple Home or Alexa through a small ESP32 stick, without replacing
 motors, re-pairing receivers or running a home server.
 
-Fernomatter is firmware for an M5Stack AtomS3 Lite with a 433 MHz transmitter.
+matter-shutter-bridge is firmware for an M5Stack AtomS3 Lite with a 433 MHz transmitter.
 It appears as a Matter bridge with one window covering per shutter, and
 translates Matter commands into the same radio frames your Fernotron
 central unit (2411) sends. Your shutters cannot tell the difference, and your
@@ -44,7 +44,7 @@ No soldering. Place the stick where your 2411 remote reaches all shutters;
 ### Your Fernotron installation
 
 - A **Rademacher 2411 central unit** that your shutters are already paired
-  to. Fernomatter sends as that 2411, so nothing has to be re-paired.
+  to. The bridge sends as that 2411, so nothing has to be re-paired.
 - The 2411's **ID**: the 6-character code starting with `80` on the sticker
   in its battery compartment (e.g. `80a1b2`).
 - Which **group and member** each shutter has on the 2411 (groups 1–7,
@@ -221,7 +221,7 @@ table stay.
 
 ## Radio regulations
 
-Fernomatter transmits on 433.92 MHz in the EU short-range-device band. The
+The bridge transmits on 433.92 MHz in the EU short-range-device band. The
 RF433T is a 10 mW transmitter, which is already the legal limit, and the
 firmware refuses to exceed a 10 % duty cycle over any hour. Don't add power
 amplifiers or bigger transmitters. You are responsible for operating it
@@ -284,7 +284,7 @@ hardware and Alexa.
 
 ## Acknowledgements
 
-Fernomatter stands on the work of others:
+This project stands on the work of others:
 
 - **[tronferno-mcu](https://github.com/zwiebert/tronferno-mcu)** and
   **[tronferno-lib](https://github.com/zwiebert/tronferno-lib)** by

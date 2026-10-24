@@ -2,7 +2,7 @@
 # ships with ESP-IDF, so `source tools/env.sh` first; tools/host_test.sh does
 # both steps.
 cmake_minimum_required(VERSION 3.16)
-project(fernomatter_host_tests C CXX)
+project(shutter_bridge_host_tests C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

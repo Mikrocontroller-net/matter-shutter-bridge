@@ -156,7 +156,8 @@ esp_err_t create(node_t *node) {
     fillCoverConfig(cfg, &c.delegate, position);
 
     endpoint::bridged_node::config_t bridgedCfg;
-    // Fixed per slot, so a renamed shutter is still the same device to Alexa.
+    // Fixed per slot, so a renamed shutter is still the same device to Alexa and
+    // Apple Home. Changing the format would make them all new devices.
     snprintf(bridgedCfg.bridged_device_basic_information.unique_id,
              sizeof(bridgedCfg.bridged_device_basic_information.unique_id), "fernomatter-slot%u", (unsigned)(i + 1));
     endpoint_t *ep = endpoint::bridged_node::create(node, &bridgedCfg, ENDPOINT_FLAG_BRIDGE, nullptr);

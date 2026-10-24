@@ -10,6 +10,7 @@
 namespace settings {
 
 static const char *TAG = "settings";
+// Fixed: a different namespace would leave the stored configuration behind.
 static const char *NVS_NAMESPACE = "fernomatter";
 static const char *NVS_KEY = "house";
 static const char *NVS_KEY_POSITIONS = "positions";
