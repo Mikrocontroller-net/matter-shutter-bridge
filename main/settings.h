@@ -2,6 +2,7 @@
 
 #include <config/command.h>
 #include <config/house.h>
+#include <pairing/pairing.h>
 
 // The device configuration in NVS, shared by the console and the covers task.
 // Every successful change is written to flash immediately.
@@ -26,6 +27,11 @@ Radio radio();
 // ends. OPEN for a shutter with nothing stored.
 uint16_t savedPosition(size_t index);
 void savePosition(size_t index, uint16_t position);
+
+// The device's Matter setup code. A factory reset of the Matter pairing
+// leaves it in place, so the code printed once stays valid.
+bool loadSetupCode(pairing::Code &out);
+void saveSetupCode(const pairing::Code &code);
 
 config::Error apply(const config::Command &c);
 config::Error setTimes(size_t index, uint32_t upMs, uint32_t downMs);

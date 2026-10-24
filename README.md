@@ -109,10 +109,16 @@ monitor shows the log and accepts console commands; quit it with `Ctrl+]`.
 
 ### 4. Pair with Alexa
 
-1. In the Alexa app: **+ → Add device → Matter**.
-2. Scan the QR code `MT:Y.K9042C00KA0648G00`
-   ([show as image](https://project-chip.github.io/connectedhomeip/qrcode.html?data=MT:Y.K9042C00KA0648G00))
-   or enter the code **3497-011-2332**.
+1. Read the stick's pairing code from the serial monitor. Each stick draws its
+   own code at its first start and keeps it; it is printed at every start and
+   again with `matter esp pairing`:
+   ```
+   Pairing code: 1234-567-8901
+   QR code:      MT:...
+   As image:     https://project-chip.github.io/connectedhomeip/qrcode.html?data=...
+   ```
+2. In the Alexa app: **+ → Add device → Matter**, then scan the QR code (open
+   the "As image" link) or enter the 11-digit pairing code.
 3. Accept the warning about an uncertified device.
 
 Alexa then finds a hub named "Rollladen-Bridge" and one device per shutter.
@@ -124,12 +130,13 @@ To add a second controller such as Apple Home later, either share the bridge
 from the Alexa app (device settings of the hub, "other assistants and apps")
 and enter the code Alexa shows, or hold the stick's button for 3 seconds
 until the LED turns blue and let go. The pairing window then opens for 15
-minutes and the other app pairs with the QR code above. This second way works
+minutes and the other app pairs with the stick's code. This second way works
 over Wi-Fi only, so the phone must be on the same network.
 
-These are the Matter SDK's public test codes: while the pairing window is open,
-anyone within Bluetooth range (unpaired stick) or on your network (button)
-could pair the stick.
+Keep the pairing code to yourself: while the pairing window is open, anyone
+within Bluetooth range (unpaired stick) or on your network (button) who knows
+it could pair the stick. A factory reset keeps the code; flashing with
+`erase-flash` draws a new one.
 
 ### 5. Tell it your 2411 and shutters
 
@@ -182,6 +189,7 @@ are saved immediately and survive reboots and firmware updates.
 | `send <group> <member> up\|down\|stop` | Send one command directly; 0 means all groups or all members |
 | `diag` / `diag clear` | List the commands received from Alexa, with values |
 | `status` | Estimated position and motion of each shutter |
+| `pairing` | This stick's pairing code and QR code |
 
 ## Button and LED
 

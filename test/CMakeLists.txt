@@ -38,8 +38,12 @@ add_library(panel STATIC
   ${COMPONENTS}/panel/src/panel/panel.cpp)
 target_include_directories(panel PUBLIC ${COMPONENTS}/panel/src)
 
+add_library(pairing STATIC
+  ${COMPONENTS}/pairing/src/pairing/pairing.cpp)
+target_include_directories(pairing PUBLIC ${COMPONENTS}/pairing/src)
+
 enable_testing()
-foreach(name fernotron shutter config panel)
+foreach(name fernotron shutter config panel pairing)
   add_executable(test_${name} test_${name}/test_main.cpp)
   target_link_libraries(test_${name} PRIVATE ${name} unity)
   add_test(NAME ${name} COMMAND test_${name})

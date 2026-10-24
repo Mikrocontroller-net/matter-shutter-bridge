@@ -14,6 +14,7 @@ static const char *TAG = "settings";
 static const char *NVS_NAMESPACE = "fernomatter";
 static const char *NVS_KEY = "house";
 static const char *NVS_KEY_POSITIONS = "positions";
+static const char *NVS_KEY_SETUP_CODE = "setup_code";
 
 static config::House house;
 static SemaphoreHandle_t mutex;
@@ -56,6 +57,30 @@ void load() {
   for (uint16_t &p : positions) {
     if (p > 10000) p = 0;
   }
+}
+
+bool loadSetupCode(pairing::Code &out) {
+  uint8_t data[pairing::BLOB_BYTES];
+  size_t len = sizeof(data);
+  nvs_handle_t nvs;
+  if (nvs_open(NVS_NAMESPACE, NVS_READONLY, &nvs) != ESP_OK) return false;
+  const bool ok = nvs_get_blob(nvs, NVS_KEY_SETUP_CODE, data, &len) == ESP_OK && pairing::deserialize(data, len, out);
+  nvs_close(nvs);
+  return ok;
+}
+
+void saveSetupCode(const pairing::Code &code) {
+  uint8_t data[pairing::BLOB_BYTES];
+  const size_t len = pairing::serialize(code, data, sizeof(data));
+  nvs_handle_t nvs;
+  if (len == 0 || nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs) != ESP_OK) {
+    ESP_LOGE(TAG, "could not write the setup code to NVS");
+    return;
+  }
+  if (nvs_set_blob(nvs, NVS_KEY_SETUP_CODE, data, len) != ESP_OK || nvs_commit(nvs) != ESP_OK) {
+    ESP_LOGE(TAG, "could not write the setup code to NVS");
+  }
+  nvs_close(nvs);
 }
 
 uint16_t savedPosition(size_t index) {

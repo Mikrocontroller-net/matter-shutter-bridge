@@ -13,6 +13,7 @@
 #include "panel_hw.h"
 #include "rf_tx.h"
 #include "settings.h"
+#include "setup_code.h"
 
 static const char *TAG = "app";
 
@@ -64,6 +65,7 @@ extern "C" void app_main() {
   if (rf_tx::init() != ESP_OK) ESP_LOGE(TAG, "radio unavailable; commands will not be transmitted");
   nvs_flash_init();
   settings::load();
+  setup_code::init();
 
   esp_matter::node::config_t nodeCfg;
   strncpy(nodeCfg.root_node.basic_information.node_label, BRIDGE_NAME,
@@ -79,6 +81,7 @@ extern "C" void app_main() {
     return;
   }
   ensureBridgeName();
+  setup_code::print();
   covers::start();
   if (panel_hw::start() != ESP_OK) ESP_LOGE(TAG, "status LED unavailable; the button still works");
 

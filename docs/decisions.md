@@ -2,6 +2,25 @@
 
 Where this repo deliberately differs from `docs/plan.md`, and why. Newest first.
 
+## 2026-10-24 — Per-device setup code, generated on the device
+
+**Decision.** At its first start each stick draws a random setup passcode,
+discriminator and SPAKE2+ salt (hardware RNG with its bootloader entropy
+source enabled, since Wi-Fi and Bluetooth are not running yet), stores them in
+NVS (`setup_code`, components/pairing) and serves them to esp-matter as a
+custom commissionable data provider. The QR code and 11-digit code are printed
+at boot and by `matter esp pairing`. The SPAKE2+ verifier is derived when a
+pairing window first opens.
+
+**Why.** The SDK's test code 20202021 is public, so anyone in Bluetooth range
+or on the network could pair a stick whose window is open. Espressif's
+manufacturing tool would also give each device its own code, but it is built
+for production runs: a factory partition generated on a computer per device
+and flashed separately. Generating on the device needs no extra step.
+
+**Cost.** The code lives only on the stick and its console output; there is
+no printed label. A factory reset keeps it; erasing the flash draws a new one.
+
 ## 2026-10-24 — Pairing window and reset on the button, status on the LED
 
 **Decision.** Holding the button 3 s opens a pairing window for 15 minutes,

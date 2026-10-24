@@ -12,6 +12,7 @@
 #include "diag.h"
 #include "rf_tx.h"
 #include "settings.h"
+#include "setup_code.h"
 
 namespace cli {
 
@@ -138,6 +139,11 @@ static esp_err_t cmdStatus(int, char **) {
   return ESP_OK;
 }
 
+static esp_err_t cmdPairing(int, char **) {
+  setup_code::print();
+  return ESP_OK;
+}
+
 void registerCommands() {
   static const esp_matter::console::command_t commands[] = {
       {"shutter", "List shutters, or set name/address/times/invert of one", cmdShutter},
@@ -146,6 +152,7 @@ void registerCommands() {
       {"send", "Transmit one command: send <group> <member> up|down|stop (0 = all)", cmdSend},
       {"diag", "Dump received Matter commands; 'diag clear' empties the log", cmdDiag},
       {"status", "Show each shutter's position and motion", cmdStatus},
+      {"pairing", "Show this device's pairing code and QR code", cmdPairing},
   };
   esp_matter::console::add_commands(commands, sizeof(commands) / sizeof(commands[0]));
 }

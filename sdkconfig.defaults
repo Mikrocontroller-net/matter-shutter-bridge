@@ -7,6 +7,10 @@ CONFIG_PARTITION_TABLE_CUSTOM=y
 CONFIG_PARTITION_TABLE_FILENAME="partitions.csv"
 CONFIG_PARTITION_TABLE_OFFSET=0xC000
 
+# Each device draws its own setup code (main/setup_code.cpp) instead of the
+# SDK's public test code
+CONFIG_CUSTOM_COMMISSIONABLE_DATA_PROVIDER=y
+
 # BLE commissioning
 CONFIG_BT_ENABLED=y
 CONFIG_BT_NIMBLE_ENABLED=y
