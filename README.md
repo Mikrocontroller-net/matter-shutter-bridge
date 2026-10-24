@@ -1,12 +1,12 @@
 # Fernomatter
 
-Control Rademacher **Fernotron** roller shutters with **Alexa** (or any other
-Matter controller) through a small ESP32 stick, without replacing motors,
-re-pairing receivers or running a home server.
+Control Rademacher **Fernotron** roller shutters with **Matter** controllers
+such as Apple Home or Alexa through a small ESP32 stick, without replacing
+motors, re-pairing receivers or running a home server.
 
 Fernomatter is firmware for an M5Stack AtomS3 Lite with a 433 MHz transmitter.
-It appears in Alexa as a Matter bridge with one window covering per shutter,
-and translates Alexa's commands into the same radio frames your Fernotron
+It appears as a Matter bridge with one window covering per shutter, and
+translates Matter commands into the same radio frames your Fernotron
 central unit (2411) sends. Your shutters cannot tell the difference, and your
 existing remotes keep working.
 
@@ -17,16 +17,16 @@ existing remotes keep working.
 
 ## What you get
 
-- Every shutter as its own device in Alexa ("Alexa, öffne Schlafzimmer links",
-  sliders in the app, groups and rooms).
+- Every shutter as its own device in your smart home app, with rooms,
+  groups, sliders and voice control (see [Compatibility](#compatibility)).
 - Open, close, stop and **go to a percentage**. Positions are estimated from
   each shutter's measured travel time, since Fernotron is one-way radio.
 - Whole rooms or the whole house move together: commands for several
   shutters are merged into one radio command per room, or one for everything.
 - Configuration over USB (names, addresses, travel times) without rebuilding
   the firmware.
-- Local control: the Echo talks to the stick on your LAN; no cloud skill, no
-  extra hub.
+- Local control: your Echo or iPhone talks to the stick on your LAN; no cloud
+  skill, no extra hub.
 
 ## What you need
 
