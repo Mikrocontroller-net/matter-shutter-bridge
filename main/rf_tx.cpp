@@ -81,11 +81,7 @@ static uint32_t nowMs() { return (uint32_t)(esp_timer_get_time() / 1000); }
 
 // Task-owned state.
 static fernotron::Batcher batcher(BATCH_QUIET_MS, BATCH_MAX_WAIT_MS);
-// Fernotron motors seem to act only on two identical frames in a row: with
-// single copies taking turns, only some shutters moved. So copies take turns
-// in pairs.
-static constexpr uint8_t COPIES_PER_TURN = 2;
-static fernotron::Interleaver onAir(COPIES_PER_TURN);
+static fernotron::Interleaver onAir;
 static uint32_t centralId = 0;
 static uint8_t repeats = 1;
 static uint8_t counter = 1;
