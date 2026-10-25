@@ -68,4 +68,10 @@ cover endpoint, so never reorder or delete slots.
 ## Style
 - Comments say what the code does and why. No historical notes such as
   "replaces X" or "we used to have Y".
+- Every public declaration in a header gets a brief Doxygen `///` comment
+  (`///<` after struct members and enumerators): the first sentence says what
+  it is or does; add units, ranges, ownership, thread safety and side effects
+  where they matter. No `@brief`; `@param`/`@return` only when they add
+  information. Private members and .cpp files use plain `//` comments for
+  how and why.
 - Logic belongs in components/; keep main/ files small.

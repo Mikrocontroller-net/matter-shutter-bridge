@@ -3,18 +3,23 @@
 #include <array>
 #include <stdint.h>
 
-// Duty-cycle guard for the EU 433 MHz band: at most 10 % airtime, i.e. 360 s
-// per hour. Airtime is counted in one-minute bins over the last 60 minutes,
-// which covers slightly more than an hour and so errs on the safe side.
 namespace fernotron {
 
+/// Duty-cycle guard for the EU 433 MHz band: at most 10 % airtime, i.e. 360 s
+/// per hour. Airtime is counted in one-minute bins over the last 60 minutes,
+/// which covers slightly more than an hour and so errs on the safe side.
+/// Not thread-safe; one task owns it.
 class Airtime {
  public:
   explicit Airtime(uint32_t budgetMsPerHour = 360000) : budgetMs_(budgetMsPerHour) {}
 
-  // Books `onAirMs` at `nowMs` if it fits the budget; otherwise books nothing.
+  /// Books `onAirMs` at `nowMs` if it fits the budget; otherwise books nothing.
+  /// @return whether the airtime was booked, i.e. the frame may be sent.
   bool tryConsume(uint32_t nowMs, uint32_t onAirMs);
+  /// Airtime booked within the last hour as of `nowMs`. Advances the bins,
+  /// hence not const.
   uint32_t usedMs(uint32_t nowMs);
+  /// Allowed airtime per hour.
   uint32_t budgetMs() const { return budgetMs_; }
 
  private:

@@ -4,31 +4,34 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// The bridge's Matter setup code: a passcode and discriminator drawn at random
-// once per device instead of the SDK's public test values, and the salt for
-// the SPAKE2+ verifier derived from them. Stored, so the code printed on the
-// console stays valid for the life of the device.
+/// The bridge's Matter setup code: a passcode and discriminator drawn at random
+/// once per device instead of the SDK's public test values, and the salt for
+/// the SPAKE2+ verifier derived from them. Stored, so the code printed on the
+/// console stays valid for the life of the device.
 namespace pairing {
 
 constexpr uint32_t MAX_PASSCODE = 99999998;
-constexpr uint16_t MAX_DISCRIMINATOR = 0x0FFF;  // 12 bits
+constexpr uint16_t MAX_DISCRIMINATOR = 0x0FFF;  ///< 12 bits.
 constexpr size_t SALT_BYTES = 32;
-// PBKDF2 rounds for the verifier: the spec's minimum, which keeps deriving it
-// on the device fast.
+/// PBKDF2 rounds for the verifier: the spec's minimum, which keeps deriving it
+/// on the device fast.
 constexpr uint32_t ITERATIONS = 1000;
+/// Size of the stored blob.
 constexpr size_t BLOB_BYTES = 1 + 4 + 2 + SALT_BYTES;
 
+/// One device's setup code.
 struct Code {
   uint32_t passcode = 0;
   uint16_t discriminator = 0;
   std::array<uint8_t, SALT_BYTES> salt{};
 };
 
-// Matter's passcode rules: 1..99999998, excluding trivial values such as
-// 11111111 or 12345678.
+/// Checks Matter's passcode rules: 1..99999998, excluding trivial values such
+/// as 11111111 or 12345678.
 bool isValidPasscode(uint32_t passcode);
 
-// Draws a code from `random`, a source of uniformly random 32-bit words.
+/// Draws a code from `random`, a callable returning uniformly random 32-bit
+/// words. Draws again while the passcode would be invalid.
 template <typename Random>
 Code generate(Random &&random) {
   Code c;
@@ -43,9 +46,11 @@ Code generate(Random &&random) {
   return c;
 }
 
-// Versioned storage format. serialize() returns the bytes written (BLOB_BYTES)
-// or 0 if `outLen` is too small; deserialize() rejects anything malformed.
+/// Writes `c` in the versioned storage format.
+/// @return BLOB_BYTES, or 0 if `outLen` is too small.
 size_t serialize(const Code &c, uint8_t *out, size_t outLen);
+/// Reads a blob from serialize(); rejects anything malformed or invalid and
+/// leaves `out` untouched then.
 bool deserialize(const uint8_t *in, size_t len, Code &out);
 
 }  // namespace pairing

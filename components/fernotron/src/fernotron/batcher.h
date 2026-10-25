@@ -4,52 +4,60 @@
 
 #include "message.h"
 
-// Collects commands and merges identical ones, so a whole room or the whole
-// house moves with one radio frame instead of one frame per shutter (~1.2 s
-// each with repeats).
-//
-// A batch leaves once no command has arrived for `quietMs`, or `maxWaitMs`
-// after its first command, whichever comes first. Alexa sends a routine's or
-// group's commands one per shutter, about 200 ms apart, so a fixed window
-// after the first command would split them.
-//
-// Merging relies on the configured membership being complete: a frame to
-// (group g, member 0) reaches every motor paired to g on the 2411, and
-// (0, 0) reaches every motor of every group. Only groups whose configured
-// members all received the same command are merged.
-//
-// STOPs leave first. Merges are recomputed for every frame, so a STOP that
-// arrives while earlier frames are on air still goes next.
 namespace fernotron {
 
+/// Collects commands and merges identical ones, so a whole room or the whole
+/// house moves with one radio frame instead of one frame per shutter (~1.2 s
+/// each with repeats).
+///
+/// A batch leaves once no command has arrived for `quietMs`, or `maxWaitMs`
+/// after its first command, whichever comes first. Alexa sends a routine's or
+/// group's commands one per shutter, about 200 ms apart, so a fixed window
+/// after the first command would split them.
+///
+/// Merging relies on the configured membership being complete: a frame to
+/// (group g, member 0) reaches every motor paired to g on the 2411, and
+/// (0, 0) reaches every motor of every group. Only groups whose configured
+/// members all received the same command are merged.
+///
+/// STOPs leave first. Merges are recomputed for every frame handed out.
+/// Not thread-safe; one task owns it.
 class Batcher {
  public:
+  /// One frame to transmit.
   struct Frame {
-    uint8_t group;   // 0 = all groups
-    uint8_t member;  // 0 = all members of the group
+    uint8_t group;   ///< 0 addresses all groups.
+    uint8_t member;  ///< 0 addresses all members of the group.
     Command cmd;
-    uint8_t merged;  // commands this frame stands for
+    uint8_t merged;  ///< How many queued commands this frame stands for.
   };
 
+  /// @param quietMs   a batch leaves this long after its latest command.
+  /// @param maxWaitMs ... but no later than this after its first command.
   Batcher(uint32_t quietMs, uint32_t maxWaitMs) : quietMs_(quietMs), maxWaitMs_(maxWaitMs) {}
 
-  // Membership: which members (1..7) of which groups (1..7) are motors this
-  // device controls.
+  /// Records that member `member` (1..7) of group `group` (1..7) is a motor
+  /// this device controls. Out-of-range values are ignored.
   void addMember(uint8_t group, uint8_t member);
+  /// Forgets all members; nothing merges until they are added again.
   void clearMembers();
 
-  // Queues a command for `group`/`member` (0..7; 0 addresses all) and
-  // extends the batch's quiet period, up to its maximum wait. A newer command
-  // for the same address replaces the older one but keeps its place in line.
-  // Commands added while a due batch is being sent join it without delay.
+  /// Queues a command for `group`/`member` (0..7; 0 addresses all) and
+  /// extends the batch's quiet period, up to its maximum wait.
+  ///
+  /// A newer command for the same address replaces the older one but keeps
+  /// its place in line. Commands added while a due batch is being handed out
+  /// join it without delay. Out-of-range addresses are ignored.
   void add(uint8_t group, uint8_t member, Command cmd, uint32_t nowMs);
 
-  // Once the batch is due, hands out one frame at a time until the queue is
-  // empty. Returns false when nothing is due.
+  /// Hands out the next frame once the batch is due.
+  /// @return false when nothing is due; call again until it returns false.
   bool next(uint32_t nowMs, Frame &out);
 
+  /// True while any command is queued.
   bool pending() const;
-  uint32_t msUntilDue(uint32_t nowMs) const;  // 0 if something is due
+  /// Milliseconds until the batch is due; 0 if it is due or nothing is queued.
+  uint32_t msUntilDue(uint32_t nowMs) const;
 
  private:
   static constexpr uint8_t SIZE = 8;  // addresses 0..7
