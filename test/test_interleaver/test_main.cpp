@@ -118,6 +118,30 @@ static void test_other_shutters_keep_their_copies() {
   TEST_ASSERT_EQUAL_STRING("ABCABCABCABC", drain(il).c_str());
 }
 
+static void test_pairs_go_out_back_to_back() {
+  Interleaver il(2);
+  il.add(tx('A', 1, 0));
+  il.add(tx('B', 2, 0));
+  TEST_ASSERT_EQUAL_STRING("AABBAABB", drain(il).c_str());
+}
+
+static void test_pairs_with_an_odd_copy_count() {
+  Interleaver il(2);
+  il.add(tx('A', 1, 0, Command::Up, 3));
+  il.add(tx('B', 2, 0, Command::Up, 3));
+  TEST_ASSERT_EQUAL_STRING("AABBAB", drain(il).c_str());
+}
+
+static void test_stop_gets_a_full_pair_even_mid_turn() {
+  Interleaver il(2);
+  il.add(tx('A', 1, 0));
+  il.add(tx('B', 2, 0));
+  Transmission t;
+  il.next(t);  // first copy of A's pair
+  il.add(tx('S', 3, 1, Command::Stop));
+  TEST_ASSERT_EQUAL_STRING("SSAABBSSABB", drain(il).c_str());
+}
+
 static void test_full_rotation_refuses_more() {
   Interleaver il;
   size_t added = 0;
@@ -147,6 +171,9 @@ int main() {
   RUN_TEST(test_newer_command_drops_older_copies_for_the_same_shutter);
   RUN_TEST(test_overlap_through_group_and_broadcast_addresses);
   RUN_TEST(test_other_shutters_keep_their_copies);
+  RUN_TEST(test_pairs_go_out_back_to_back);
+  RUN_TEST(test_pairs_with_an_odd_copy_count);
+  RUN_TEST(test_stop_gets_a_full_pair_even_mid_turn);
   RUN_TEST(test_full_rotation_refuses_more);
   RUN_TEST(test_zero_copies_are_refused);
   return UNITY_END();

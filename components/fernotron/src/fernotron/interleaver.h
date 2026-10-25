@@ -7,11 +7,11 @@
 #include "batcher.h"
 #include "message.h"
 
-// Sends the copies of the commands on air in turn: one copy of each per
-// round. In a routine every room gets its first copy within about one round,
-// and each command's copies spread over several seconds, so a short burst of
-// interference rarely hits all of them. All copies of a command carry the
-// same counter, so a motor acts on the first one it receives.
+// Sends the copies of the commands on air in turn: `copiesPerTurn` copies of
+// each, back to back, per round. In a routine every room gets its first copies
+// within about one round, and each command's copies spread over several
+// seconds, so a short burst of interference rarely hits all of them. All
+// copies of a command carry the same counter, so a motor acts on it once.
 namespace fernotron {
 
 struct Transmission {
@@ -23,6 +23,8 @@ struct Transmission {
 class Interleaver {
  public:
   static constexpr size_t CAPACITY = 16;
+
+  explicit Interleaver(uint8_t copiesPerTurn = 1) : perTurn_(copiesPerTurn ? copiesPerTurn : 1) {}
 
   // Queues a command's copies. Copies still pending for an overlapping
   // address are dropped: the newer command wins, so a late copy of an UP
@@ -39,9 +41,11 @@ class Interleaver {
  private:
   void removeAt(size_t i);
 
+  uint8_t perTurn_;
   std::array<Transmission, CAPACITY> items_{};
   size_t count_ = 0;
-  size_t cursor_ = 0;  // index of the command whose copy goes next
+  size_t cursor_ = 0;        // index of the command whose copy goes next
+  uint8_t sentThisTurn_ = 0;  // copies of that command sent in its current turn
 };
 
 }  // namespace fernotron

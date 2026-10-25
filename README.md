@@ -284,8 +284,8 @@ and schedules a STOP after the computed travel time. Fully open and fully
 closed simply run into the motor's end stop. Commands that arrive less than
 300 ms apart are collected and merged when a whole room or the whole house
 gets the same command. Each command goes out several times with the same
-counter, and the copies of different commands take turns, so every room
-starts within about a second.
+counter, and different commands take turns with pairs of copies, so every
+room starts within about two seconds.
 The encoder builds the Fernotron message (2411 ID, group, member, command,
 counter, checksum) and the RMT peripheral sends it with hardware timing.
 

@@ -12,6 +12,7 @@ static bool overlaps(const Batcher::Frame &a, const Batcher::Frame &b) {
 void Interleaver::removeAt(size_t i) {
   for (size_t j = i + 1; j < count_; j++) items_[j - 1] = items_[j];
   count_--;
+  if (i == cursor_) sentThisTurn_ = 0;  // the next command starts a fresh turn
   if (i < cursor_) cursor_--;
   if (cursor_ >= count_) cursor_ = 0;
 }
@@ -29,6 +30,7 @@ bool Interleaver::add(const Transmission &t) {
   if (t.frame.cmd == Command::Stop) {
     for (size_t j = count_; j > cursor_; j--) items_[j] = items_[j - 1];
     items_[cursor_] = t;
+    sentThisTurn_ = 0;
   } else {
     items_[count_] = t;
   }
@@ -42,8 +44,9 @@ bool Interleaver::next(Transmission &out) {
   out = items_[cursor_];
   if (out.copiesLeft == 0) {
     removeAt(cursor_);  // the cursor now points at the following command
-  } else if (++cursor_ >= count_) {
-    cursor_ = 0;
+  } else if (++sentThisTurn_ >= perTurn_) {
+    sentThisTurn_ = 0;
+    if (++cursor_ >= count_) cursor_ = 0;
   }
   return true;
 }

@@ -4,18 +4,20 @@ The main design decisions and why they were made. Newest first.
 
 ## 2026-10-24 — Interleaved copies, no repeat at the end of travel
 
-**Decision.** `rf_tx` sends the copies of all commands on air in turn, one
-copy per command (`fernotron::Interleaver`), instead of each command's copies
-back to back. A STOP goes next, and a newer command drops the remaining
+**Decision.** `rf_tx` sends the copies of all commands on air in turn, two
+copies back to back per command and turn (`fernotron::Interleaver`), instead
+of all of a command's copies back to back. A STOP goes next, and a newer command drops the remaining
 copies of older ones for an overlapping address. The controller no longer
 repeats an open/close command when the shutter should have reached its end.
 
 **Why.** In a routine closing every room, the last room's first copy left
 ~5.7 s after the first room's, and a bathroom shutter that missed its 4
 back-to-back copies only moved on the repeat at the end of travel, ~21 s
-later. Interleaved, every room gets a copy within about one round (~1.2 s
-for four rooms) and each command's copies spread over several seconds, so a
-short burst of interference rarely hits all of them. The repeat at the end of
+later. Interleaved, every room gets its first pair within about one round
+(~1.7 s for four rooms) and each command's copies spread over several seconds,
+so a short burst of interference rarely hits all of them. Single copies taking
+turns moved only some shutters: the motors seem to act only on two identical
+frames in a row, hence pairs. The repeat at the end of
 travel came too late to help and cost as much airtime as a whole command.
 
 **Cost.** A single command's copies still go out back to back, so a shutter
