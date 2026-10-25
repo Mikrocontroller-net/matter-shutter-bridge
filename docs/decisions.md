@@ -2,6 +2,35 @@
 
 The main design decisions and why they were made. Newest first.
 
+## 2026-10-25 — Updates, console and log over Wi-Fi
+
+**Decision.** The stick serves three HTTP endpoints on port 80 (main/remote):
+`/ota` takes an app image and restarts into it, `/console` runs one console
+line and returns its output, `/log` returns log text from a 16 KB ring. Each request needs the stick's own 128-bit token, drawn at first
+start, kept in NVS and shown only on the USB console. The bootloader's
+rollback is enabled: new firmware must reach Wi-Fi with the server running
+within 60 s, and a restart or crash before that returns to the previous one.
+`tools/remote.sh` is the client. The DHCP host name is `shutter-bridge`.
+
+**Why.** On the desk, USB is convenient; but radio range problems only show
+where the stick will live. Matter's own OTA needs an OTA provider: a
+controller that fetches certified images from the DCL, or a separate provider
+app joined to the fabric. A direct upload needs neither. Console lines run on
+the Matter task, as USB console lines do, with stdout pointed at a memory
+buffer, so both consoles share one set of commands and never run at once.
+The Matter SDK prints each log line in three parts, two of them with printf;
+a log redirect makes it one esp_log call, so the ring gets whole lines.
+The SDK's per-message traces (chip[EM]) are three quarters of all log text
+and flushed the ring within a second of Wi-Fi coming up, so they go to USB
+only, except errors. The ring then holds the whole boot, and an idle stick
+logs almost nothing.
+
+**Cost.** Plain HTTP and unsigned images: someone who can read the home
+network's traffic can take the token and install firmware. 16 KB of RAM for
+the log ring. The SDK's own shell commands (`matter config` and others) write
+straight to USB and are not captured. The rollback bootloader needs one USB
+flash.
+
 ## 2026-10-24 — Interleaved copies, no repeat at the end of travel
 
 **Decision.** `rf_tx` sends the copies of all commands on air in turn, one

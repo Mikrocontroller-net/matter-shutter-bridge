@@ -11,6 +11,7 @@
 #include "cli.h"
 #include "covers.h"
 #include "panel_hw.h"
+#include "remote.h"
 #include "rf_tx.h"
 #include "settings.h"
 #include "setup_code.h"
@@ -34,9 +35,12 @@ static void onEvent(const ChipDeviceEvent *event, intptr_t) {
   switch (event->Type) {
     case DeviceEventType::kCommissioningComplete: ESP_LOGI(TAG, "commissioning complete"); break;
     case DeviceEventType::kFailSafeTimerExpired: ESP_LOGW(TAG, "commissioning failed: fail-safe expired"); break;
-    case DeviceEventType::kWiFiConnectivityChange:
-      panel_hw::setWifiConnected(event->WiFiConnectivityChange.Result == chip::DeviceLayer::kConnectivity_Established);
+    case DeviceEventType::kWiFiConnectivityChange: {
+      const bool up = event->WiFiConnectivityChange.Result == chip::DeviceLayer::kConnectivity_Established;
+      panel_hw::setWifiConnected(up);
+      remote::setWifiConnected(up);
       break;
+    }
     default: break;
   }
 }
@@ -62,10 +66,12 @@ static esp_err_t onAttributeUpdate(esp_matter::attribute::callback_type_t, uint1
 
 extern "C" void app_main() {
   rfPinLow();
+  remote::captureLog();
   if (rf_tx::init() != ESP_OK) ESP_LOGE(TAG, "radio unavailable; commands will not be transmitted");
   nvs_flash_init();
   settings::load();
   setup_code::init();
+  remote::init();
 
   esp_matter::node::config_t nodeCfg;
   strncpy(nodeCfg.root_node.basic_information.node_label, BRIDGE_NAME,
@@ -82,6 +88,8 @@ extern "C" void app_main() {
   }
   ensureBridgeName();
   setup_code::print();
+  if (remote::start() != ESP_OK) ESP_LOGE(TAG, "remote access unavailable");
+  remote::print();
   covers::start();
   if (panel_hw::start() != ESP_OK) ESP_LOGE(TAG, "status LED unavailable; the button still works");
 

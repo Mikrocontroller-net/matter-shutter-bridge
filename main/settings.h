@@ -3,6 +3,7 @@
 #include <config/command.h>
 #include <config/house.h>
 #include <pairing/pairing.h>
+#include <remote/token.h>
 
 /// The device configuration in NVS, shared by the console and the covers task.
 /// Every function is safe to call from any task; every successful change is
@@ -48,6 +49,14 @@ void savePosition(size_t index, uint16_t position);
 /// @return false when no valid code is stored.
 bool loadSetupCode(pairing::Code &out);
 void saveSetupCode(const pairing::Code &code);
+/// @}
+
+/// @name The access token for remote development (see main/remote.h)
+/// Kept, like the setup code, across a factory reset of the Matter pairing.
+/// @{
+/// @return false when no valid token is stored.
+bool loadRemoteToken(remote::Token &out);
+void saveRemoteToken(const remote::Token &token);
 /// @}
 
 /// Applies a parsed console command (see config::apply) and stores the result.

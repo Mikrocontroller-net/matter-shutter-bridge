@@ -8,3 +8,4 @@ managed_components/
 sdkconfig
 sdkconfig.old
 .*.swp
+.bridge-remote

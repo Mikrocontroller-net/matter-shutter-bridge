@@ -25,6 +25,8 @@ existing remotes keep working.
   shutters are merged into one radio command per room, or one for everything.
 - Configuration over USB (names, addresses, travel times) without rebuilding
   the firmware.
+- Firmware updates, console and log over Wi-Fi, so the stick can sit where
+  the radio reaches best.
 - Local control: your Echo or iPhone talks to the stick on your LAN; no cloud
   skill, no extra hub.
 
@@ -102,6 +104,8 @@ idf.py -p /dev/cu.usbmodem* erase-flash flash monitor
 On Linux the port is usually `/dev/ttyACM0`. If flashing doesn't start, hold
 the reset button for about 2 s until the green LED lights, then retry. The
 monitor shows the log and accepts console commands; quit it with `Ctrl+]`.
+Later updates can go over Wi-Fi (see
+[Updates and console over Wi-Fi](#updates-and-console-over-wi-fi)).
 
 ### 4. Pair with Alexa
 
@@ -186,6 +190,35 @@ are saved immediately and survive reboots and firmware updates.
 | `diag` / `diag clear` | List the commands received from Alexa, with values |
 | `status` | Estimated position and motion of each shutter |
 | `pairing` | This stick's pairing code and QR code |
+| `remote` | Address and access token for updates over Wi-Fi |
+
+## Updates and console over Wi-Fi
+
+Once the stick is on Wi-Fi it can live where the radio reaches best:
+firmware updates, console commands and the log also work over the network.
+`matter esp remote` on the USB console shows the stick's address and its own
+access token. Put both into `.bridge-remote` in the repository root (Git
+ignores it):
+
+```bash
+BRIDGE_HOST=192.168.1.23    # or shutter-bridge, if your router resolves DHCP names
+BRIDGE_TOKEN=0123456789abcdef0123456789abcdef
+```
+
+| Command | Does |
+| --- | --- |
+| `tools/remote.sh flash` | Build, upload, restart into the new firmware and check that it runs |
+| `tools/remote.sh cmd matter esp status` | Run one `matter esp` command and print its output |
+| `tools/remote.sh log -f` | Print the last 16 KB of log and keep following it |
+
+New firmware is on probation: if it crashes or doesn't reach Wi-Fi within
+60 s, the stick goes back to the previous one. The bootloader that does this
+comes with the first USB flash of this version. Settings, pairings and codes
+stay through updates.
+
+The connection is plain HTTP and images are not signed, so someone who can
+read your home network's traffic could pick up the token. Use it only on a
+network you trust.
 
 ## Button and LED
 
@@ -293,17 +326,18 @@ counter, checksum) and the RMT peripheral sends it with hardware timing.
 
 | Path | Contents |
 | --- | --- |
-| `main/` | ESP-IDF adapters: Matter bridge (`covers`), radio (`rf_tx`), button and LED (`panel_hw`), settings in NVS, console, command log |
+| `main/` | ESP-IDF adapters: Matter bridge (`covers`), radio (`rf_tx`), button and LED (`panel_hw`), Wi-Fi access (`remote`), settings in NVS, console, command log |
 | `components/fernotron/` | Fernotron message builder, frame encoder, duty-cycle guard, command batcher |
 | `components/shutter/` | Position estimator and command controller |
 | `components/config/` | Configuration model, storage format and console command parser |
 | `components/panel/` | What the LED shows and what button holds do |
 | `components/pairing/` | Per-device setup code: generation and storage format |
-| `test/` | Host unit tests (Unity) for the five components |
-| `tools/` | Toolchain setup, environment and host test scripts |
+| `components/remote/` | Log ring and access token for updates over Wi-Fi |
+| `test/` | Host unit tests (Unity) for the six components |
+| `tools/` | Toolchain setup, environment, host tests, updates over Wi-Fi |
 | `docs/` | Design decisions |
 
-The five components are plain C++17 without ESP-IDF headers, so most logic
+The six components are plain C++17 without ESP-IDF headers, so most logic
 is tested on the computer:
 
 ```bash

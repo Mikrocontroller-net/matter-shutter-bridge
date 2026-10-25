@@ -10,6 +10,7 @@
 
 #include "covers.h"
 #include "diag.h"
+#include "remote.h"
 #include "rf_tx.h"
 #include "settings.h"
 #include "setup_code.h"
@@ -144,6 +145,11 @@ static esp_err_t cmdPairing(int, char **) {
   return ESP_OK;
 }
 
+static esp_err_t cmdRemote(int, char **) {
+  remote::print();
+  return ESP_OK;
+}
+
 void registerCommands() {
   static const esp_matter::console::command_t commands[] = {
       {"shutter", "List shutters, or set name/address/times/invert of one", cmdShutter},
@@ -153,6 +159,7 @@ void registerCommands() {
       {"diag", "Dump received Matter commands; 'diag clear' empties the log", cmdDiag},
       {"status", "Show each shutter's position and motion", cmdStatus},
       {"pairing", "Show this device's pairing code and QR code", cmdPairing},
+      {"remote", "Show the address and token for tools/remote.sh", cmdRemote},
   };
   esp_matter::console::add_commands(commands, sizeof(commands) / sizeof(commands[0]));
 }

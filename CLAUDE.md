@@ -14,6 +14,8 @@ Every shell first needs `source tools/env.sh` (ESP-IDF + esp-matter).
 - Device build: `idf.py build`
 - Flash + log:  `idf.py -p /dev/cu.usbmodem* flash monitor`
 - Erase flash:  `idf.py -p /dev/cu.usbmodem* erase-flash`
+- Over Wi-Fi:   `tools/remote.sh flash`, `tools/remote.sh cmd <line>`,
+  `tools/remote.sh log [-f]` (host and token in .bridge-remote)
 A change is done when host tests pass and the device build succeeds.
 
 ## Device configuration
@@ -55,7 +57,7 @@ cover endpoint, so never reorder or delete slots.
 ## Architecture rules
 - components/fernotron, components/shutter and components/config are pure
   C++17: no ESP-IDF headers. They build on the host in test/.
-- main/ holds the adapters: Matter, RMT, NVS, CLI, diag.
+- main/ holds the adapters: Matter, RMT, NVS, CLI, diag, remote access.
 - Matter callbacks never block: enqueue an event and return.
 - Log every received Matter command to diag: cluster, command, value, fabric.
 - Endpoint IDs never change for an existing shutter.

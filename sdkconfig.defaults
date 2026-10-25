@@ -33,3 +33,12 @@ CONFIG_LWIP_HOOK_ND6_GET_GW_DEFAULT=y
 # MAX_FABRIC unique local addresses plus one link-local address
 CONFIG_LWIP_IPV6_NUM_ADDRESSES=6
 CONFIG_ESP_WIFI_SOFTAP_SUPPORT=n
+
+# Remote development (main/remote.cpp). New firmware that crashes or does not
+# reach Wi-Fi is rolled back; the bootloader needs one USB flash for this.
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+# DHCP host name, which many home routers resolve
+CONFIG_LWIP_LOCAL_HOSTNAME="shutter-bridge"
+# Matter's sockets plus the HTTP server's three connections, listener and
+# control socket
+CONFIG_LWIP_MAX_SOCKETS=16
