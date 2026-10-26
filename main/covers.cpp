@@ -136,6 +136,20 @@ static void syncRadioMembers() {
   rf_tx::setMembers(members);
 }
 
+// esp-matter writes the current position to flash on every change, which
+// while a routine moves eight shutters means ~30 NVS writes a second, each
+// able to stall a radio frame. Deferred, a position is written once, 3 s
+// after its last change; settings::savePosition() keeps the bridge's own copy.
+static void deferPositionWrites(cluster_t *wc) {
+  for (uint32_t id : {WindowCovering::Attributes::CurrentPositionLiftPercent100ths::Id,
+                      WindowCovering::Attributes::CurrentPositionLiftPercentage::Id}) {
+    attribute_t *a = attribute::get(wc, id);
+    if (a && attribute::set_deferred_persistence(a) != ESP_OK) {
+      ESP_LOGW(TAG, "attribute 0x%04lx is written to flash on every change", (unsigned long)id);
+    }
+  }
+}
+
 esp_err_t create(node_t *node) {
   count = settings::count();
   syncRadioMembers();
@@ -171,7 +185,9 @@ esp_err_t create(node_t *node) {
 
     c.endpoint = endpoint::get_id(ep);
     c.delegate.SetEndpoint(c.endpoint);
-    hookCommandLogging(cluster::get(ep, WindowCovering::Id));
+    cluster_t *wc = cluster::get(ep, WindowCovering::Id);
+    deferPositionWrites(wc);
+    hookCommandLogging(wc);
     ESP_LOGI(TAG, "endpoint %u: %s (group %u, member %u), position %u", c.endpoint, s.name, s.group, s.member,
              position);
   }

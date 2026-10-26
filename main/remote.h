@@ -19,8 +19,8 @@
 /// next poll).
 namespace remote {
 
-/// Copies log output, ESP_LOG and the Matter SDK's, into a 16 KB RAM ring from
-/// now on; the SDK's per-message traces (chip[EM], except errors) go to USB
+/// Copies log output into a 16 KB RAM ring from now on: everything logged
+/// with ESP_LOG, and the Matter SDK's errors. The SDK's other lines go to USB
 /// only. Call early in app_main().
 void captureLog();
 

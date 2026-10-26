@@ -1,11 +1,14 @@
 #include <string.h>
+#include <unistd.h>
 
 #include <driver/gpio.h>
+#include <driver/usb_serial_jtag.h>
 #include <esp_log.h>
 #include <esp_matter.h>
 #include <esp_matter_console.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <linenoise/linenoise.h>
 #include <nvs_flash.h>
 
 #include "cli.h"
@@ -59,6 +62,14 @@ static void ensureBridgeName() {
   esp_matter::attribute::update(0, BasicInformation::Id, BasicInformation::Attributes::NodeLabel::Id, &name);
 }
 
+// ESP-IDF fails console reads at once while no USB host is connected
+// (IDF-14303), so on a plain power supply the SDK's shell loop would spin,
+// printing an empty line per pass. Waiting for a host keeps it idle.
+static ssize_t readConsole(int fd, void *buf, size_t len) {
+  while (!usb_serial_jtag_is_connected()) vTaskDelay(pdMS_TO_TICKS(500));
+  return read(fd, buf, len);
+}
+
 static esp_err_t onAttributeUpdate(esp_matter::attribute::callback_type_t, uint16_t, uint32_t, uint32_t,
                                    esp_matter_attr_val_t *, void *) {
   return ESP_OK;
@@ -97,4 +108,5 @@ extern "C" void app_main() {
   esp_matter::console::factoryreset_register_commands();
   cli::registerCommands();
   esp_matter::console::init();
+  linenoiseSetReadFunction(readConsole);
 }

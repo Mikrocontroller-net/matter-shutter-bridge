@@ -104,10 +104,10 @@ static void chipLog(const char *module, uint8_t category, const char *msg, va_li
     Platform::LogV(module, category, msg, args);
     return;
   }
-  // The message layer's per-message traces are three quarters of all log
-  // text, enough to flush the ring within a second at boot. They go to USB
-  // only; its errors still reach the ring.
-  if (category != kLogCategory_Error && strcmp(module, "EM") == 0) {
+  // Only the SDK's errors reach the ring. Its other lines (message traces,
+  // attribute reports, subscription status) are almost all log text and
+  // flushed the 16 KB ring within seconds of a routine; they go to USB only.
+  if (category != kLogCategory_Error) {
     if (esp_log_level_get(tag) >= level) vprintf(fmt, args);
     return;
   }

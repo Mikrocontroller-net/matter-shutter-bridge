@@ -165,7 +165,11 @@ esp_err_t init() {
   chanCfg.gpio_num = DATA_PIN;
   chanCfg.clk_src = RMT_CLK_SRC_DEFAULT;
   chanCfg.resolution_hz = RESOLUTION_HZ;
-  chanCfg.mem_block_symbols = 96;  // two S3 blocks; the driver refills while sending
+  // Three of the S3's four TX blocks hold a whole frame (141 symbols and the end
+  // marker), so nothing is refilled while it is on air: the refill interrupt
+  // cannot run during flash writes, and a late refill corrupts the frame. The
+  // status LED uses the fourth block.
+  chanCfg.mem_block_symbols = 144;
   chanCfg.trans_queue_depth = 2;
   chanCfg.flags.init_level = 0;
   ESP_RETURN_ON_ERROR(rmt_new_tx_channel(&chanCfg, &channel), TAG, "RMT channel");

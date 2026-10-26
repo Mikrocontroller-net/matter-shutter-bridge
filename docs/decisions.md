@@ -2,6 +2,39 @@
 
 The main design decisions and why they were made. Newest first.
 
+## 2026-10-26 — USB console waits for a USB host
+
+**Decision.** linenoise reads the console through a function of ours that
+waits until a USB host is connected (`linenoiseSetReadFunction`).
+
+**Why.** In ESP-IDF 6 a read from the USB-Serial-JTAG console fails at once
+while no host is connected (IDF-14303). On a plain power supply the Matter
+SDK's shell loop then ran without pause, printing an empty line per pass,
+which also showed up in `/console` replies.
+
+## 2026-10-26 — Whole frames in RMT memory, deferred position writes
+
+**Decision.** The radio's RMT channel takes three of the S3's four TX memory
+blocks (144 symbols), so a whole frame (141 symbols and the end marker) is in
+place before it starts and nothing is refilled while it is on air. The two
+current-position attributes of every cover are written to flash 3 s after
+their last change instead of on every change.
+
+**Why.** A frame used to need a refill from an interrupt halfway through.
+That interrupt cannot run while flash is written, and an NVS page erase
+blocks for tens of milliseconds, long enough to corrupt the copy on air.
+esp-matter wrote both position attributes to flash on every update, every
+500 ms per moving shutter: about 30 writes a second in a routine, with a page
+erase every few seconds. Commands failed mostly while shutters moved, in
+routines and reversals; a corrupted copy fails the motor's checksum and is
+dropped. The bridge keeps its own copy of each position (`positions` in NVS)
+when a move ends, so the deferred attribute only matters for the controllers'
+view after a restart.
+
+**Cost.** No RMT TX block is left for anything beyond the status LED. A
+frame with a longer preamble than 9 would no longer fit and would be refilled
+again.
+
 ## 2026-10-25 — Updates, console and log over Wi-Fi
 
 **Decision.** The stick serves three HTTP endpoints on port 80 (main/remote):
@@ -20,10 +53,10 @@ the Matter task, as USB console lines do, with stdout pointed at a memory
 buffer, so both consoles share one set of commands and never run at once.
 The Matter SDK prints each log line in three parts, two of them with printf;
 a log redirect makes it one esp_log call, so the ring gets whole lines.
-The SDK's per-message traces (chip[EM]) are three quarters of all log text
-and flushed the ring within a second of Wi-Fi coming up, so they go to USB
-only, except errors. The ring then holds the whole boot, and an idle stick
-logs almost nothing.
+Only the SDK's errors go to the ring: its other lines (message traces,
+attribute reports at ~15 a second while shutters move) flushed the 16 KB
+within seconds, so they go to USB only. The ring then keeps the bridge's own
+lines, radio frames included, for hours.
 
 **Cost.** Plain HTTP and unsigned images: someone who can read the home
 network's traffic can take the token and install firmware. 16 KB of RAM for

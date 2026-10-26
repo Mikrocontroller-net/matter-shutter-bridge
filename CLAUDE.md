@@ -29,6 +29,8 @@ cover endpoint, so never reorder or delete slots.
 - RF433T data is GPIO2 (Grove yellow). HIGH means carrier on.
 - Drive GPIO2 LOW first thing in app_main(); RMT end-of-transmission level is LOW.
 - RMT resolution is 400 kHz (2.5 us): 400 us = 160 ticks, max duration 81.9 ms.
+- A frame (141 symbols) must fit in the RMT channel memory (144): its refill
+  interrupt cannot run during flash writes.
 - Front button is GPIO41, active LOW. Hold 3 s: pairing window; 10 s: factory
   reset (decided on release, components/panel).
 - RGB LED (WS2812C) is GPIO35, driven through espressif/led_strip on RMT.

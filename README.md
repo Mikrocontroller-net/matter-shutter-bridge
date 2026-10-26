@@ -209,7 +209,7 @@ BRIDGE_TOKEN=0123456789abcdef0123456789abcdef
 | --- | --- |
 | `tools/remote.sh flash` | Build, upload, restart into the new firmware and check that it runs |
 | `tools/remote.sh cmd matter esp status` | Run one `matter esp` command and print its output |
-| `tools/remote.sh log -f` | Print the last 16 KB of log and keep following it |
+| `tools/remote.sh log -f` | Print the kept log (the bridge's own lines, radio frames included, and Matter errors) and keep following it |
 
 New firmware is on probation: if it crashes or doesn't reach Wi-Fi within
 60 s, the stick goes back to the previous one. The bootloader that does this
