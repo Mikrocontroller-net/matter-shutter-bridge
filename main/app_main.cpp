@@ -78,6 +78,12 @@ static esp_err_t onAttributeUpdate(esp_matter::attribute::callback_type_t, uint1
 extern "C" void app_main() {
   rfPinLow();
   remote::captureLog();
+  // The SDK's route hook logs every IPv6 router advertisement from the house's
+  // Thread border routers, a line about every 20 s, which would push the radio
+  // lines out of the remote log within an hour or two.
+  esp_log_level_set("ROUTE_HOOK", ESP_LOG_WARN);
+  // esp-matter logs each deferred position write, every 3 s per moving cover.
+  esp_log_level_set("data_model", ESP_LOG_WARN);
   if (rf_tx::init() != ESP_OK) ESP_LOGE(TAG, "radio unavailable; commands will not be transmitted");
   nvs_flash_init();
   settings::load();

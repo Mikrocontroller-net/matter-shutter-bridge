@@ -315,10 +315,10 @@ A Matter command such as "go to 30 % closed" sets the cover's target. The
 shutter controller compares it with the estimated position, sends UP or DOWN,
 and schedules a STOP after the computed travel time. Fully open and fully
 closed simply run into the motor's end stop. Commands that arrive less than
-300 ms apart are collected and merged when a whole room or the whole house
-gets the same command. Each command goes out several times with the same
-counter, and the copies of different commands take turns, so every room
-starts within about a second.
+1 s apart are collected and merged when a whole room or the whole house gets
+the same command. Each command goes out several times with the same counter,
+back to back, and the next command waits for 2 s of silence: Fernotron
+receivers ignore a frame that follows another one closely.
 The encoder builds the Fernotron message (2411 ID, group, member, command,
 counter, checksum) and the RMT peripheral sends it with hardware timing.
 

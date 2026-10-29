@@ -49,11 +49,14 @@ cover endpoint, so never reorder or delete slots.
 - Never transmit in a loop on hardware without a delay and a repeat limit.
 - All transmissions go through main/rf_tx, which enforces the 10% budget
   per sliding hour (fernotron::Airtime). Never bypass or loosen it.
-- rf_tx merges commands that arrive less than 300 ms apart, at most 2 s in
+- rf_tx merges commands that arrive less than 1 s apart, at most 3 s in
   total (fernotron::Batcher): a whole room becomes one (group, 0) frame, the
   whole house one (0, 0) frame. This is only safe while the shutter table
   lists every motor paired to those groups on the 2411; never add a group to
   the 2411 without adding its motors.
+- Receivers ignore a frame that follows another frame closely, whatever its
+  address. Only copies of one command go out back to back; rf_tx keeps 2 s
+  of silence before the next command.
 - Hand test without Alexa: `matter esp send <group> <member> up|down|stop`.
 
 ## Architecture rules

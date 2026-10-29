@@ -21,8 +21,7 @@ add_library(fernotron STATIC
   ${COMPONENTS}/fernotron/src/fernotron/message.cpp
   ${COMPONENTS}/fernotron/src/fernotron/encoder.cpp
   ${COMPONENTS}/fernotron/src/fernotron/airtime.cpp
-  ${COMPONENTS}/fernotron/src/fernotron/batcher.cpp
-  ${COMPONENTS}/fernotron/src/fernotron/interleaver.cpp)
+  ${COMPONENTS}/fernotron/src/fernotron/batcher.cpp)
 target_include_directories(fernotron PUBLIC ${COMPONENTS}/fernotron/src)
 
 add_library(shutter STATIC
@@ -54,9 +53,7 @@ foreach(name fernotron shutter config panel pairing remote)
   add_test(NAME ${name} COMMAND test_${name})
 endforeach()
 
-# Extra suites for the fernotron library.
-foreach(name batcher interleaver)
-  add_executable(test_${name} test_${name}/test_main.cpp)
-  target_link_libraries(test_${name} PRIVATE fernotron unity)
-  add_test(NAME ${name} COMMAND test_${name})
-endforeach()
+# Extra suite for the fernotron library.
+add_executable(test_batcher test_batcher/test_main.cpp)
+target_link_libraries(test_batcher PRIVATE fernotron unity)
+add_test(NAME batcher COMMAND test_batcher)

@@ -6,10 +6,11 @@ using namespace fernotron;
 
 static constexpr uint32_t QUIET = 300;
 static constexpr uint32_t MAX_WAIT = 2000;
+static constexpr uint32_t GAP = 2000;
 
 // This house: groups 1-4 with members 1 and 2.
-static Batcher make() {
-  Batcher b(QUIET, MAX_WAIT);
+static Batcher make(uint32_t gap = 0) {
+  Batcher b(QUIET, MAX_WAIT, gap);
   for (uint8_t g = 1; g <= 4; g++) {
     b.addMember(g, 1);
     b.addMember(g, 2);
@@ -279,6 +280,77 @@ static void test_reports_time_until_next_deadline() {
   TEST_ASSERT_EQUAL_UINT32(0, b.msUntilDue(2000));
 }
 
+static void test_first_frame_needs_no_gap() {
+  Batcher b = make(GAP);
+  Batcher::Frame f;
+  b.add(1, 1, Command::Up, 0);
+  TEST_ASSERT_TRUE(b.next(QUIET, f));
+}
+
+static void test_next_frame_waits_for_the_gap() {
+  Batcher b = make(GAP);
+  Batcher::Frame f;
+  b.add(1, 1, Command::Up, 0);
+  b.add(2, 1, Command::Down, 0);
+  TEST_ASSERT_TRUE(b.next(QUIET, f));
+  assertFrame(1, 1, Command::Up, f);
+  b.sent(1500);
+  TEST_ASSERT_EQUAL_UINT32(GAP, b.msUntilDue(1500));
+  TEST_ASSERT_FALSE(b.next(1500 + GAP - 1, f));
+  TEST_ASSERT_EQUAL_UINT32(1, b.msUntilDue(1500 + GAP - 1));
+  TEST_ASSERT_TRUE(b.next(1500 + GAP, f));
+  assertFrame(2, 1, Command::Down, f);
+}
+
+static void test_stop_also_waits_for_the_gap() {
+  Batcher b = make(GAP);
+  Batcher::Frame f;
+  b.add(1, 1, Command::Down, 0);
+  TEST_ASSERT_TRUE(b.next(QUIET, f));
+  b.sent(1500);
+  b.add(1, 1, Command::Stop, 1600);
+  TEST_ASSERT_FALSE(b.next(1600 + QUIET, f));
+  TEST_ASSERT_TRUE(b.next(1500 + GAP, f));
+  assertFrame(1, 1, Command::Stop, f);
+}
+
+static void test_commands_held_by_the_gap_still_merge() {
+  // A room asked for while the previous frame's gap runs leaves as one frame.
+  Batcher b = make(GAP);
+  Batcher::Frame f;
+  b.add(1, 1, Command::Up, 0);
+  TEST_ASSERT_TRUE(b.next(QUIET, f));
+  b.sent(1500);
+  b.add(2, 1, Command::Up, 1600);
+  b.add(2, 2, Command::Up, 1800);
+  TEST_ASSERT_EQUAL_UINT32(1500 + GAP - 1800 - QUIET, b.msUntilDue(1800 + QUIET));
+  TEST_ASSERT_FALSE(b.next(1500 + GAP - 1, f));
+  TEST_ASSERT_TRUE(b.next(1500 + GAP, f));
+  assertFrame(2, 0, Command::Up, f);
+  TEST_ASSERT_FALSE(b.next(1500 + GAP, f));
+}
+
+static void test_long_idle_never_holds_a_frame() {
+  // More than half the millisecond clock later, the old frame must not look
+  // like it is still in the future.
+  Batcher b = make(GAP);
+  Batcher::Frame f;
+  b.sent(1000);
+  const uint32_t later = 1000 + 0x80000000u;
+  b.add(1, 1, Command::Up, later);
+  TEST_ASSERT_TRUE(b.next(later + QUIET, f));
+}
+
+static void test_gap_survives_millis_wraparound() {
+  Batcher b = make(GAP);
+  Batcher::Frame f;
+  const uint32_t t = 0xFFFFFFFFu - 100;
+  b.sent(t);
+  b.add(1, 1, Command::Up, t);
+  TEST_ASSERT_FALSE(b.next(t + GAP - 1, f));
+  TEST_ASSERT_TRUE(b.next(t + GAP, f));
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_single_command_waits_for_the_quiet_period);
@@ -302,5 +374,11 @@ int main() {
   RUN_TEST(test_ignores_out_of_range_addresses);
   RUN_TEST(test_deadline_survives_millis_wraparound);
   RUN_TEST(test_reports_time_until_next_deadline);
+  RUN_TEST(test_first_frame_needs_no_gap);
+  RUN_TEST(test_next_frame_waits_for_the_gap);
+  RUN_TEST(test_stop_also_waits_for_the_gap);
+  RUN_TEST(test_commands_held_by_the_gap_still_merge);
+  RUN_TEST(test_long_idle_never_holds_a_frame);
+  RUN_TEST(test_gap_survives_millis_wraparound);
   return UNITY_END();
 }

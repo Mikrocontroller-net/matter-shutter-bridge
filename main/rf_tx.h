@@ -7,10 +7,11 @@
 
 /// 433.92 MHz output through the Unit RF433T on GPIO2, timed by the RMT
 /// peripheral. One task owns the channel, so transmissions never overlap.
-/// Commands are collected until 300 ms pass without a new one (at most 2 s) and
+/// Commands are collected until 1 s passes without a new one (at most 3 s) and
 /// merged per group or for the whole house when every configured motor got the
-/// same command (fernotron::Batcher). The copies of the commands on air go out
-/// in turn, one per command (fernotron::Interleaver); STOPs go first.
+/// same command (fernotron::Batcher); STOPs go first. Each command's copies go
+/// out back to back, followed by 2 s of silence before the next command, since
+/// receivers ignore a frame that follows another one closely.
 namespace rf_tx {
 
 /// Takes over GPIO2 with the line held LOW (carrier off) and starts the
@@ -20,8 +21,7 @@ esp_err_t init();
 
 /// Queues one command for a central-unit address. Each frame that leaves gets
 /// the next Fernotron counter value and goes out `repeats` times with that
-/// same counter, interleaved with the copies of other commands. Safe to call
-/// from any task; does not block.
+/// same counter. Safe to call from any task; does not block.
 /// @param repeats 1..8 copies.
 /// @return false if the command cannot be built or the queue is full; refusals
 ///         for airtime are logged by the task.

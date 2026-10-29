@@ -2,6 +2,38 @@
 
 The main design decisions and why they were made. Newest first.
 
+## 2026-10-29 — One command at a time, with silence between commands
+
+**Decision.** `rf_tx` sends a command's copies back to back, as a 2411 does,
+and holds the next command until 2 s after the last copy (the `Batcher`'s
+gap). A batch leaves after 1 s without a new command, at most 3 s after its
+first. Interleaving (2026-10-24) is gone.
+
+**Why.** A routine opening every room moved only one room. Its commands had
+left as six frames, each 43 ms (one lead-out) after the previous one; only
+the first was acted on, and a room whose frame was ignored moved at once
+when asked alone 20 s later. Earlier misses fit the same pattern: while
+copies were interleaved, only the first copy after a pause had silence
+before it. The receivers seem to take closely following frames as one
+transmission and act on its first message only, whatever its address. With
+a 1 s window that routine would have been a single frame to the whole house,
+as a "close all" the evening before was, and it worked. The gap covers what
+still needs several frames, such as different positions per room.
+
+How much silence is needed is not measured: in a reversal test, 2 s worked
+once and failed once; 20 s has always worked. `GAP_MS` in `main/rf_tx.cpp`
+sets it.
+
+**Cost.** 1 s latency for a single command. Commands that do not merge
+leave about 3 s apart (four copies take 1.1 s), so in a routine that moves
+each room differently the last room starts ~9 s after the first. A timed
+STOP waits as long as its move did, but also for the gap: after a move
+shorter than about 3 s (~17 % of an 18 s travel) it comes late, and the
+shutter overshoots. So do STOPs for several rooms that fall due within a
+few seconds of each other but cannot merge: each waits for the one before.
+A burst of interference can hit all copies of a command, which is then not
+retried.
+
 ## 2026-10-26 — USB console waits for a USB host
 
 **Decision.** linenoise reads the console through a function of ours that
@@ -55,8 +87,11 @@ The Matter SDK prints each log line in three parts, two of them with printf;
 a log redirect makes it one esp_log call, so the ring gets whole lines.
 Only the SDK's errors go to the ring: its other lines (message traces,
 attribute reports at ~15 a second while shutters move) flushed the 16 KB
-within seconds, so they go to USB only. The ring then keeps the bridge's own
-lines, radio frames included, for hours.
+within seconds, so they go to USB only. The SDK's route hook logs each
+router advertisement from the Thread border routers, a line about every
+20 s, and esp-matter each deferred position write, every 3 s per moving
+cover; both log warnings only. The ring then keeps the bridge's own lines,
+radio frames included, for hours.
 
 **Cost.** Plain HTTP and unsigned images: someone who can read the home
 network's traffic can take the token and install firmware. 16 KB of RAM for
@@ -82,6 +117,9 @@ travel came too late to help and cost as much airtime as a whole command.
 
 **Cost.** A single command's copies still go out back to back, so a shutter
 that misses all of them is not retried.
+
+**Reversed 2026-10-29**: receivers ignore a frame that follows another one
+closely, so interleaved copies were mostly ignored.
 
 ## 2026-10-24 — Per-device setup code, generated on the device
 
@@ -137,7 +175,8 @@ open or close through Matter, Alexa may skip a command it believes is done.
 ## 2026-10-23 — Merge commands for rooms and the whole house
 
 **Decision.** `rf_tx` collects commands in `fernotron::Batcher` until 300 ms
-pass without a new one, at most 2 s after the first.
+pass without a new one, at most 2 s after the first (1 s and 3 s since
+2026-10-29).
 When every configured motor of a group got the same command it sends one
 frame to (group, member 0); when every configured group is complete, one
 frame to (0, 0). STOPs go first.
@@ -160,7 +199,7 @@ of an 18 s travel); up to 2 s for a long burst. Group frames reach every motor p
 **Decision.** `main/rf_tx` owns the RMT channel (GPIO2, 400 kHz, idle and
 end-of-transmission LOW) and the Fernotron counter. A command is queued, gets
 the next counter value and goes out `house repeats` times with that counter,
-interleaved with the copies of other commands (2026-10-24). Every frame, lead-in
+back to back (2026-10-29). Every frame, lead-in
 included, is sent as tronferno does.
 
 Before each frame, `fernotron::Airtime` books its airtime against 360 s per

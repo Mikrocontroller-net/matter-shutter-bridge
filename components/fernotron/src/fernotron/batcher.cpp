@@ -42,10 +42,25 @@ bool Batcher::pending() const {
   return false;
 }
 
-bool Batcher::due(uint32_t nowMs) const { return pending() && reached(nowMs, dueMs_); }
+void Batcher::sent(uint32_t nowMs) {
+  sentAny_ = true;
+  sentMs_ = nowMs;
+}
+
+// Measured as elapsed time, so a frame sent long ago never looks recent once
+// the millisecond clock wraps.
+uint32_t Batcher::gapLeft(uint32_t nowMs) const {
+  const uint32_t elapsed = nowMs - sentMs_;
+  return sentAny_ && elapsed < gapMs_ ? gapMs_ - elapsed : 0;
+}
+
+bool Batcher::due(uint32_t nowMs) const { return pending() && reached(nowMs, dueMs_) && gapLeft(nowMs) == 0; }
 
 uint32_t Batcher::msUntilDue(uint32_t nowMs) const {
-  return !pending() || reached(nowMs, dueMs_) ? 0 : dueMs_ - nowMs;
+  if (!pending()) return 0;
+  const uint32_t batch = reached(nowMs, dueMs_) ? 0 : dueMs_ - nowMs;
+  const uint32_t gap = gapLeft(nowMs);
+  return batch > gap ? batch : gap;
 }
 
 uint8_t Batcher::pendingMask(uint8_t group, Command cmd) const {

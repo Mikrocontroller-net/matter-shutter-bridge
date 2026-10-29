@@ -13,7 +13,6 @@
 #include <fernotron/airtime.h>
 #include <fernotron/batcher.h>
 #include <fernotron/encoder.h>
-#include <fernotron/interleaver.h>
 
 namespace rf_tx {
 
@@ -24,10 +23,14 @@ static constexpr uint32_t RESOLUTION_HZ = 400000;  // 2.5 us per tick
 static constexpr uint8_t MAX_REPEATS = 8;
 static constexpr int FRAME_TIMEOUT_MS = 1000;
 // Alexa sends one command per shutter for a room, group or routine, about
-// 200 ms apart; a batch leaves after 300 ms without a new command, at most 2 s
-// after its first. The quiet period is also the delay of a timed STOP.
-static constexpr uint32_t BATCH_QUIET_MS = 300;
-static constexpr uint32_t BATCH_MAX_WAIT_MS = 2000;
+// 200 ms apart; a batch leaves after 1 s without a new command, at most 3 s
+// after its first. A timed STOP waits as long as the move it ends did.
+static constexpr uint32_t BATCH_QUIET_MS = 1000;
+static constexpr uint32_t BATCH_MAX_WAIT_MS = 3000;
+// Silence after a command's last copy before the next command. Receivers
+// ignored commands that followed another frame by 43 ms and acted on one after
+// 20 s; 2 s worked in one test out of two.
+static constexpr uint32_t GAP_MS = 2000;
 // While idle, the task still wakes this often to refresh the airtime figure
 // that activity() reports, since booked airtime expires over the hour.
 static constexpr uint32_t IDLE_WAKE_MS = 10000;
@@ -80,8 +83,7 @@ static bool transmitFrame(const fernotron::Frame &frame) {
 static uint32_t nowMs() { return (uint32_t)(esp_timer_get_time() / 1000); }
 
 // Task-owned state.
-static fernotron::Batcher batcher(BATCH_QUIET_MS, BATCH_MAX_WAIT_MS);
-static fernotron::Interleaver onAir;
+static fernotron::Batcher batcher(BATCH_QUIET_MS, BATCH_MAX_WAIT_MS, GAP_MS);
 static uint32_t centralId = 0;
 static uint8_t repeats = 1;
 static uint8_t counter = 1;
@@ -106,29 +108,12 @@ static void drain() {
   while (xQueueReceive(requests, &r, 0) == pdTRUE) accept(r);
 }
 
-// One command: the next counter value, then `repeats` copies on air.
-static void enqueue(const fernotron::Batcher::Frame &f) {
-  fernotron::Transmission t{};
-  if (fernotron::buildMessage({centralId, f.group, f.member}, f.cmd, counter, t.message) != fernotron::Error::None) {
-    ESP_LOGE(TAG, "cannot build %s for g%u m%u", name(f.cmd), f.group, f.member);
-    return;
-  }
-  counter = fernotron::nextCounter(counter);
-  t.frame = f;
-  t.copiesLeft = repeats;
-  const fernotron::Message &m = t.message;
-  ESP_LOGI(TAG, "%s g%u m%u (%u merged) x%u: %02x %02x %02x %02x %02x %02x", name(f.cmd), f.group, f.member, f.merged,
-           repeats, m[0], m[1], m[2], m[3], m[4], m[5]);
-  if (!onAir.add(t)) ESP_LOGE(TAG, "too many commands on air; dropping %s", name(f.cmd));
-}
-
-static void sendCopy(const fernotron::Transmission &t) {
-  const fernotron::Frame frame = fernotron::encode(t.message);
+static void sendCopy(const fernotron::Frame &frame, fernotron::Command cmd) {
   const uint32_t frameMs = frame.onAirUs() / 1000 + 1;
   const uint32_t now = nowMs();
   if (!airtime.tryConsume(now, frameMs)) {
     ESP_LOGE(TAG, "duty-cycle budget used up (%lu of %lu ms this hour); dropping a copy of %s",
-             (unsigned long)airtime.usedMs(now), (unsigned long)airtime.budgetMs(), name(t.frame.cmd));
+             (unsigned long)airtime.usedMs(now), (unsigned long)airtime.budgetMs(), name(cmd));
     return;
   }
   anyFrame = true;
@@ -137,25 +122,40 @@ static void sendCopy(const fernotron::Transmission &t) {
   if (!transmitFrame(frame)) ESP_LOGE(TAG, "RMT transmit failed");
 }
 
+// One command: the next counter value, then `repeats` copies with it back to
+// back, as a 2411 sends them.
+static void transmit(const fernotron::Batcher::Frame &f) {
+  fernotron::Message m;
+  if (fernotron::buildMessage({centralId, f.group, f.member}, f.cmd, counter, m) != fernotron::Error::None) {
+    ESP_LOGE(TAG, "cannot build %s for g%u m%u", name(f.cmd), f.group, f.member);
+    return;
+  }
+  counter = fernotron::nextCounter(counter);
+  ESP_LOGI(TAG, "%s g%u m%u (%u merged) x%u: %02x %02x %02x %02x %02x %02x", name(f.cmd), f.group, f.member, f.merged,
+           repeats, m[0], m[1], m[2], m[3], m[4], m[5]);
+  const fernotron::Frame frame = fernotron::encode(m);
+  for (uint8_t i = 0; i < repeats; i++) sendCopy(frame, f.cmd);
+}
+
+// Rounded up, so a wait shorter than a tick does not turn into a busy loop.
+static TickType_t ticksFor(uint32_t ms) { return (TickType_t)((ms + portTICK_PERIOD_MS - 1) / portTICK_PERIOD_MS); }
+
 static void task(void *) {
   for (;;) {
-    TickType_t wait = pdMS_TO_TICKS(IDLE_WAKE_MS);
-    if (!onAir.empty()) {
-      wait = 0;
-    } else if (batcher.pending()) {
-      wait = pdMS_TO_TICKS(batcher.msUntilDue(nowMs()));
-    }
+    TickType_t wait = ticksFor(IDLE_WAKE_MS);
+    if (batcher.pending()) wait = ticksFor(batcher.msUntilDue(nowMs()));
     Request r;
     if (xQueueReceive(requests, &r, wait) == pdTRUE) {
       accept(r);
       drain();
     }
-    // Released frames join the copies on air; one copy goes out per pass, so
-    // new commands and STOPs wait for at most one frame.
+    // One command per pass. Commands arriving meanwhile stay in the batcher,
+    // where they can still merge or be replaced, until the gap has passed.
     fernotron::Batcher::Frame f;
-    while (batcher.next(nowMs(), f)) enqueue(f);
-    fernotron::Transmission t;
-    if (onAir.next(t)) sendCopy(t);
+    if (batcher.next(nowMs(), f)) {
+      transmit(f);
+      batcher.sent(nowMs());
+    }
     airtimeUsedMs = airtime.usedMs(nowMs());
   }
 }
