@@ -1,5 +1,10 @@
 # matter-shutter-bridge
 
+> **Article and forum thread:** [Hardware in the Loop: Claude Code baut eine
+> Matter-Bridge für Funk-Rollläden](https://www.mikrocontroller.net/news/hardware-in-the-loop-claude-code-baut-eine-matter-bridge-fuer-alte-funk) on
+> Mikrocontroller.net (German) describes how this project was built.
+> Questions and experience reports are welcome in the thread below it.
+
 Control Rademacher **Fernotron** roller shutters with **Matter** controllers
 such as Apple Home or Alexa through a small ESP32 stick, without replacing
 motors, re-pairing receivers or running a home server.
@@ -299,6 +304,8 @@ legally where you live.
 | Command in `diag`, shutter doesn't move | 2411 ID not set or wrong, wrong group/member, or out of radio range. |
 | Voice does nothing, app works | Alexa didn't map the sentence to the device; nothing arrives in `diag`. Try the device or room name with "öffne"/"schließe". |
 | Shutter stops at the wrong percentage | Travel times not calibrated, or position estimate out of sync: open or close it fully once. |
+
+Stuck with something else? Ask in the [forum thread](https://www.mikrocontroller.net/news/hardware-in-the-loop-claude-code-baut-eine-matter-bridge-fuer-alte-funk).
 
 ## How it works
 
